@@ -1,4 +1,4 @@
-# JobHunter defaults — Dubai job aspirants
+# JobHunter defaults — worldwide (override per aspirant via preferences.yaml)
 recency:
   # Only keep postings from the last two weeks. Reject older and unknown dates.
   max_age_days: 14
@@ -6,46 +6,30 @@ recency:
   bucket_week_1_days: 7   # 0–7 days → "Posted in the last 7 days"
   bucket_week_2_days: 14  # 8–14 days → "Posted 8–14 days ago"
 
+# Default geo is intentionally light. Prefer config/regions/<name>.yaml via preferences.
 geo:
-  default_locations:
-    - Dubai
-    - UAE
+  default_locations: []
   allow_signals:
-    - uae
-    - dubai
-    - abu dhabi
-    - sharjah
-    - gcc
-    - gulf
-    - saudi
-    - qatar
-    - bahrain
-    - kuwait
-    - oman
-    - middle east
     - remote
     - worldwide
     - visa
     - sponsor
-  reject_signals:
-    - united states only
-    - us citizen
-    - must be us based
-    - uk only
-    - eu only
+    - hybrid
+  reject_signals: []
 
 scoring:
   min_score_to_keep: 35
   title_weight: 30
   skills_weight: 25
   junior_boost: 15
+  mid_boost: 10
   geo_boost: 20
 
 scraping:
   delay_seconds: 1.8
   timeout_seconds: 25
   max_jobs_per_portal: 40
-  user_agent: "JobHunter/1.0 (Dubai job aspirant tool; personal use)"
+  user_agent: "JobHunter/1.0 (personal job search tool; respectful crawl)"
 
 # Antigravity AI — OFF by default (hunt never uses this)
 ai:

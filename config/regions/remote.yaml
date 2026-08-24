@@ -1,0 +1,21 @@
+# Region pack — edit freely
+label: Remote / worldwide
+locations:
+- Remote
+- Worldwide
+country_indeed: usa
+jobspy_sites:
+- indeed
+- linkedin
+- google
+allow_signals:
+- remote
+- worldwide
+- anywhere
+- work from home
+- wfh
+- distributed
+reject_signals:
+- onsite only
+- must relocate
+- no remote

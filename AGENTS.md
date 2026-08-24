@@ -1,6 +1,6 @@
 # JobHunter — agent instructions (Antigravity / Cursor / agy)
 
-This folder is a **Dubai job hunt tool**. Prefer **speed and low token use**.
+This folder is a **worldwide job hunt / filter tool** (resume-first, region packs, ≤14-day recency). Prefer **speed and low token use**.
 
 ## Token policy (strict)
 
@@ -15,21 +15,22 @@ This folder is a **Dubai job hunt tool**. Prefer **speed and low token use**.
 ```bash
 ./setup-once.sh
 ./run.sh ui
-./run.sh easy --resume "uploads/cv.pdf" --name "Name"    # no AI
-./run.sh easy-hunt --id <id>                             # no AI
+./run.sh easy --resume "uploads/cv.pdf" --name "Name" --region dubai   # no AI
+./run.sh easy-hunt --id <id>                                          # no AI
+./run.sh regions
 ```
 
 Optional polish (costs a little credit, once):
 
 ```bash
-./run.sh easy --resume "uploads/cv.pdf" --name "Name" --ai
+./run.sh easy --resume "uploads/cv.pdf" --name "Name" --region india --ai
 ```
 
 Chat helper (cheap model):
 
 ```bash
 agy --model gemini-3.5-flash-low --effort low --add-dir .
-# /jobhunter  /jobhunter-setup  /jobhunter-hunt
+# /jobhunter /jobhunter-setup /jobhunter-hunt
 ```
 
 ## Hard product rules
@@ -37,3 +38,4 @@ agy --model gemini-3.5-flash-low --effort low --add-dir .
 - Recency max **14 days**; reject unknown dates.
 - Bottom of export: last 7 days + 8–14 days sections.
 - No auto-apply. Speak plainly.
+- Preferences: `aspirants/<id>/preferences.yaml` + `config/regions/`.

@@ -1,0 +1,19 @@
+# Region pack — edit freely
+label: Worldwide (light geo filter)
+locations:
+- Worldwide
+country_indeed: usa
+jobspy_sites:
+- indeed
+- linkedin
+- google
+allow_signals:
+- remote
+- worldwide
+- anywhere
+- visa
+- sponsor
+- hybrid
+reject_signals:
+- us citizen only
+- clearance required - citizens only

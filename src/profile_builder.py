@@ -10,6 +10,8 @@ import yaml
 
 from profile_cv import analyze_resume_text, load_resume_text
 from profile_linkedin import analyze_linkedin_paste, analyze_linkedin_url
+from preferences import apply_preferences_to_profile, load_preferences, save_preferences
+from synonyms import expand_skills
 
 try:
     from ai_gemini import refine_profile_with_gemini
@@ -39,8 +41,8 @@ def merge_analyses(*parts: dict[str, Any]) -> dict[str, Any]:
             "email": "",
             "phone": "",
             "linkedin": "",
-            "location": "Dubai / UAE (target)",
-            "work_auth": "Open to UAE/GCC roles (visa sponsorship considered)",
+            "location": "",
+            "work_auth": "Open to roles with visa sponsorship where applicable",
         },
         "experience": {
             "estimated_years": None,
@@ -180,14 +182,67 @@ def build_profile(
             if ai.get("plain_summary"):
                 profile["plain_summary"] = ai["plain_summary"]
 
+    profile["skills_positive"] = expand_skills(list(profile.get("skills_positive") or []))
+
+    # Apply preferences / region if present on disk for this aspirant id later;
+    # callers can also pass region via manual_overrides["geo"]["region"].
     return profile
 
 
-def save_aspirant(profile: dict[str, Any], *, aspirant_id: str | None = None) -> Path:
+def finalize_profile(
+    profile: dict[str, Any],
+    *,
+    aspirant_id: str | None = None,
+    region: str | None = None,
+    prefs: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Merge preferences.yaml + region pack + seniority guardrails."""
+    loaded_prefs = prefs
+    if loaded_prefs is None and aspirant_id:
+        loaded_prefs = load_preferences(aspirant_id)
+    loaded_prefs = loaded_prefs or {}
+    region_key = region or (profile.get("geo") or {}).get("region") or loaded_prefs.get("region")
+    return apply_preferences_to_profile(profile, loaded_prefs, region=region_key)
+
+
+def save_aspirant(
+    profile: dict[str, Any],
+    *,
+    aspirant_id: str | None = None,
+    preferences: dict[str, Any] | None = None,
+    region: str | None = None,
+) -> Path:
     ASPIRANTS.mkdir(parents=True, exist_ok=True)
     aid = aspirant_id or _slug(profile.get("candidate", {}).get("name") or "aspirant")
     folder = ASPIRANTS / aid
     folder.mkdir(parents=True, exist_ok=True)
+
+    # Seed preferences.yaml for non-programmers if absent
+    prefs_path = folder / "preferences.yaml"
+    if preferences is not None:
+        save_preferences(aid, preferences)
+    elif not prefs_path.exists():
+        geo = profile.get("geo") or {}
+        seed = {
+            "region": region or geo.get("region") or "",
+            "locations": list(geo.get("default_locations") or []),
+            "seniority_band": (profile.get("experience") or {}).get("seniority_band")
+            or (
+                "junior"
+                if (profile.get("experience") or {}).get("level") == "junior_entry_associate"
+                else "mid"
+            ),
+            "work_auth": (profile.get("candidate") or {}).get("work_auth") or "",
+            "work_mode": geo.get("work_mode") or "any",
+            "use_jobspy": True,
+            "jobspy_sites": list((profile.get("hunt") or {}).get("jobspy_sites") or ["indeed", "linkedin", "google"]),
+            "country_indeed": geo.get("country_indeed") or "",
+            "recency_max_days": int((profile.get("recency") or {}).get("max_age_days") or 14),
+        }
+        # Copy comments-free seed; users can consult config/preferences.example.yaml
+        save_preferences(aid, seed)
+
+    profile = finalize_profile(profile, aspirant_id=aid, region=region, prefs=preferences)
     path = folder / "profile.yaml"
     with path.open("w", encoding="utf-8") as fh:
         yaml.safe_dump(profile, fh, sort_keys=False, allow_unicode=True)
@@ -199,7 +254,8 @@ def load_aspirant(aspirant_id: str) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"No aspirant profile at {path}")
     with path.open(encoding="utf-8") as fh:
-        return yaml.safe_load(fh) or {}
+        profile = yaml.safe_load(fh) or {}
+    return finalize_profile(profile, aspirant_id=aspirant_id)
 
 
 def list_aspirants() -> list[str]:

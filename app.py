@@ -1,4 +1,4 @@
-"""JobHunter — simple Dubai job finder (non-technical friendly)."""
+"""JobHunter — worldwide job search (non-technical friendly)."""
 from __future__ import annotations
 
 import shutil
@@ -13,9 +13,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from ai_gemini import agy_available  # noqa: E402
 from pipeline import run_hunt  # noqa: E402
+from preferences import list_regions  # noqa: E402
 from profile_builder import build_profile, list_aspirants, load_aspirant, save_aspirant  # noqa: E402
 
-st.set_page_config(page_title="JobHunter Dubai", page_icon="🎯", layout="centered")
+st.set_page_config(page_title="JobHunter", page_icon="🎯", layout="centered")
 
 st.markdown(
     """
@@ -30,13 +31,17 @@ st.markdown(
 
 st.markdown('<div class="big-title">JobHunter</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="hint">Find Dubai jobs that match you. Only fresh postings from the last 1–2 weeks.</div>',
+    '<div class="hint">Find jobs that match your resume — anywhere in the world. '
+    'Only fresh postings from the last 1–2 weeks.</div>',
     unsafe_allow_html=True,
 )
 
 agy_ok = agy_available()
 if agy_ok:
-    st.caption("Antigravity found. AI is **off** by default (fast, free). Turn on only if you want Gemini to polish the profile once.")
+    st.caption(
+        "Antigravity found. AI is **off** by default (fast, free). "
+        "Turn on only if you want Gemini to polish the profile once."
+    )
 else:
     st.caption("Runs fully offline for CV scan + job search. Antigravity is optional.")
 
@@ -46,10 +51,22 @@ step = st.radio(
     horizontal=True,
 )
 
+regions = list_regions() or ["dubai", "usa", "india", "remote", "worldwide"]
+
 if step.startswith("1"):
     st.subheader("Upload your CV")
     uploaded = st.file_uploader("Your resume (PDF is best)", type=["pdf", "md", "txt"])
     name = st.text_input("Your name")
+    region = st.selectbox(
+        "Where do you want jobs?",
+        regions,
+        index=regions.index("dubai") if "dubai" in regions else 0,
+        help="Pick a region pack (city/country). Fine-tune later in preferences.yaml.",
+    )
+    locations = st.text_input(
+        "Cities / countries (optional)",
+        placeholder="e.g. Bangalore, India — or leave blank to use the region pack",
+    )
     linkedin = st.text_input("LinkedIn link (optional)", placeholder="https://www.linkedin.com/in/...")
     use_ai = st.checkbox(
         "Optional: polish profile with Gemini once (uses a little Antigravity credit)",
@@ -64,6 +81,9 @@ if step.startswith("1"):
             uploads.mkdir(exist_ok=True)
             path = uploads / uploaded.name
             path.write_bytes(uploaded.getvalue())
+            prefs = {"region": region, "use_jobspy": True}
+            if locations.strip():
+                prefs["locations"] = [x.strip() for x in locations.split(",") if x.strip()]
             with st.spinner("Reading your CV… this can take a minute if Gemini is on."):
                 try:
                     profile = build_profile(
@@ -72,14 +92,25 @@ if step.startswith("1"):
                         manual_overrides={"candidate": {"name": name}} if name else None,
                         use_ai=use_ai,
                     )
-                    saved = save_aspirant(profile)
+                    saved = save_aspirant(profile, preferences=prefs, region=region)
                     shutil.copy2(path, saved.parent / f"cv{path.suffix.lower()}")
+                    profile = load_aspirant(saved.parent.name)
                     st.session_state["aspirant_id"] = saved.parent.name
                     st.success(f"Saved! Your id is: **{saved.parent.name}**")
                     if profile.get("plain_summary"):
                         st.write(profile["plain_summary"])
                     st.write("**Jobs we’ll search for:**", ", ".join(profile.get("search_queries") or []))
+                    st.write("**Region:**", (profile.get("geo") or {}).get("region") or region)
+                    exp = profile.get("experience") or {}
+                    st.write(
+                        "**Seniority:**",
+                        f"{exp.get('level')} (max job level: {exp.get('max_job_level')})",
+                    )
                     st.write("**Skills detected:**", ", ".join((profile.get("skills_positive") or [])[:12]))
+                    st.info(
+                        f"Easy settings: aspirants/{saved.parent.name}/preferences.yaml "
+                        "(see config/preferences.example.yaml)."
+                    )
                     st.write("**Next:** choose **2 · Find matching jobs** above.")
                 except Exception as exc:  # noqa: BLE001
                     st.error(str(exc))
@@ -91,13 +122,16 @@ elif step.startswith("2"):
         st.warning("No profile yet. Go to step 1 and upload your CV.")
     else:
         default = st.session_state.get("aspirant_id") or ids[0]
-        selected = st.selectbox("Whose profile?", ids, index=ids.index(default) if default in ids else 0)
+        selected = st.selectbox(
+            "Whose profile?", ids, index=ids.index(default) if default in ids else 0
+        )
         mode = st.radio(
             "How thorough?",
             ["Quick (a few minutes)", "Full scan (longer, more portals)"],
             horizontal=True,
         )
         st.caption("We only keep jobs posted in the last 7 days or 8–14 days. Older ads are ignored.")
+        st.caption("Tip: pip install python-jobspy for Indeed/LinkedIn/Google worldwide boards.")
         if st.button("Find matching jobs", type="primary", use_container_width=True):
             with st.spinner("Searching job portals… please wait."):
                 try:
@@ -122,7 +156,11 @@ else:
     selected = st.selectbox(
         "Profile",
         ids or [""],
-        index=(ids.index(st.session_state["last_id"]) if st.session_state.get("last_id") in ids else 0)
+        index=(
+            ids.index(st.session_state["last_id"])
+            if st.session_state.get("last_id") in ids
+            else 0
+        )
         if ids
         else 0,
     )
@@ -139,4 +177,11 @@ else:
 
     if selected and (ROOT / "aspirants" / selected / "profile.yaml").exists():
         with st.expander("My saved profile (advanced)"):
-            st.code(yaml.safe_dump(load_aspirant(selected), sort_keys=False, allow_unicode=True), language="yaml")
+            st.code(
+                yaml.safe_dump(load_aspirant(selected), sort_keys=False, allow_unicode=True),
+                language="yaml",
+            )
+        prefs = ROOT / "aspirants" / selected / "preferences.yaml"
+        if prefs.exists():
+            with st.expander("My preferences (easy edit file)"):
+                st.code(prefs.read_text(encoding="utf-8"), language="yaml")

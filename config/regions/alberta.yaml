@@ -1,0 +1,23 @@
+# Region pack — edit freely
+label: Alberta, Canada
+locations:
+- Alberta
+- Canada
+country_indeed: canada
+jobspy_sites:
+- indeed
+- linkedin
+- glassdoor
+- google
+allow_signals:
+- alberta
+- calgary
+- edmonton
+- canada
+- remote
+- hybrid
+- visa
+reject_signals:
+- us citizen only
+- india only
+- uae only

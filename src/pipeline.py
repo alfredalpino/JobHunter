@@ -18,6 +18,7 @@ from adapters import (
     scrape_rss,
     scrape_site_search,
 )
+from jobspy_adapter import scrape_jobspy
 from eligibility import score_job
 from firecrawl_client import load_firecrawl_key
 from http_client import PoliteClient
@@ -60,7 +61,7 @@ def run_hunt(
     locations = list(
         (profile.get("geo") or {}).get("default_locations")
         or portals_cfg.get("locations")
-        or ["Dubai", "UAE"]
+        or ["Remote"]
     )
     delay = float(scrape_defaults.get("delay_seconds") or 1.8)
     timeout = float(scrape_defaults.get("timeout_seconds") or 25)
@@ -85,6 +86,36 @@ def run_hunt(
                     )
                 )
                 continue
+            # Region-aware portal selection:
+            # - Untagged portals are treated as UAE/Dubai legacy boards
+            # - Non-UAE regions rely on JobSpy + remote APIs + explicitly tagged portals
+            portal_regions = [str(r).lower() for r in (portal.get("regions") or [])]
+            selected_region = str((profile.get("geo") or {}).get("region") or "").lower()
+            uae_regions = {"", "dubai", "uae"}
+            method = portal.get("method") or "html"
+            if selected_region and selected_region not in uae_regions and selected_region not in {"remote", "worldwide"}:
+                if not portal_regions:
+                    # Legacy UAE HTML boards — skip for other countries
+                    if method not in {"remoteok_api", "remotive_api", "rss", "jobspy"}:
+                        results.append(
+                            PortalResult(
+                                portal["id"],
+                                portal["name"],
+                                "skip",
+                                skipped=f"UAE-centric board skipped for region={selected_region}",
+                            )
+                        )
+                        continue
+                elif selected_region not in portal_regions and "worldwide" not in portal_regions:
+                    results.append(
+                        PortalResult(
+                            portal["id"],
+                            portal["name"],
+                            "skip",
+                            skipped=f"region mismatch ({selected_region} vs {portal_regions})",
+                        )
+                    )
+                    continue
             if quick and method not in {"remoteok_api", "remotive_api", "rss"}:
                 continue
             print(f"→ {portal['name']} [{method}]")
@@ -118,7 +149,7 @@ def run_hunt(
                         result.method = "html+site_search"
                     elif portal.get("js_heavy"):
                         result.jobs = maybe_firecrawl_html_fallback(
-                            portal, queries, api_key=api_key, max_jobs=max_jobs
+                            portal, queries, api_key=api_key, max_jobs=max_jobs, locations=locations
                         )
                 results.append(result)
                 print(f"  {len(result.jobs)} listings" + (f" ({result.error})" if result.error else ""))
@@ -206,7 +237,7 @@ def _dispatch(
         return scrape_site_search(
             portal, queries, api_key=api_key, delay=delay, locations=locations
         )
-    return scrape_html(client, portal, queries, max_jobs=max_jobs)
+    return scrape_html(client, portal, queries, max_jobs=max_jobs, locations=locations)
 
 
 def _dedupe_key(job: Job) -> str:

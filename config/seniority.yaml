@@ -1,0 +1,87 @@
+# Title seniority ladder (low → high). Used for guardrails — not keyword spam.
+# Juniors never see executive; strong juniors may see mid and below.
+
+levels:
+  - intern
+  - junior
+  - mid
+  - senior
+  - lead
+  - executive
+
+signals:
+  intern:
+    - intern
+    - internship
+    - apprentice
+    - trainee
+  junior:
+    - junior
+    - "jr."
+    - entry-level
+    - entry level
+    - fresher
+    - graduate
+    - new grad
+    - associate
+    - noc l1
+  mid:
+    - mid-level
+    - mid level
+    - intermediate
+    - noc l2
+  senior:
+    - senior
+    - "sr."
+    - staff
+    - principal
+  lead:
+    - team lead
+    - tech lead
+    - engineering lead
+  executive:
+    - director
+    - head of
+    - vice president
+    - vp
+    - "vp "
+    - "vp,"
+    - "v.p"
+    - chief
+    - cto
+    - cio
+    - ceo
+    - cfo
+    - coo
+    - executive
+    - general manager
+    - managing director
+
+# Base max job title level per candidate experience.level
+max_job_level:
+  intern: junior
+  junior_entry_associate: junior
+  mid_or_unknown: mid
+  senior: senior
+  lead: lead
+  executive: executive
+
+# Always blocked for junior_entry_associate (even with credibility)
+junior_hard_block_levels:
+  - senior
+  - lead
+  - executive
+
+credibility:
+  min_certs: 1
+  min_years: 2.0
+  min_skills: 5
+  project_keywords:
+    - project
+    - portfolio
+    - github
+    - built
+    - deployed
+    - contributed
+    - open source
+    - capstone

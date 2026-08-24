@@ -17,12 +17,17 @@ REMOTE_TAGS = re.compile(
 )
 
 
-def fill_url(template: str, query: str) -> str:
+def fill_url(template: str, query: str, location: str = "") -> str:
     q = query.strip()
+    loc = (location or "").strip()
+    loc_slug = re.sub(r"[^a-z0-9]+", "-", loc.lower()).strip("-")
     return (
         template.replace("{query_plus}", quote_plus(q))
         .replace("{query_dash}", re.sub(r"\s+", "-", q.lower()))
         .replace("{query}", quote_plus(q))
+        .replace("{location_plus}", quote_plus(loc))
+        .replace("{location_slug}", loc_slug)
+        .replace("{location}", quote_plus(loc) if loc else "")
     )
 
 
@@ -192,13 +197,15 @@ def scrape_html(
     queries: list[str],
     *,
     max_jobs: int,
+    locations: list[str] | None = None,
 ) -> PortalResult:
     result = PortalResult(portal["id"], portal["name"], "html")
     hints = list(portal.get("job_path_hints") or [])
+    locs = locations or []
     seen: set[str] = set()
     for query in queries:
         for template in portal.get("search_urls") or []:
-            url = fill_url(template, query)
+            url = fill_url(template, query, location=(locs[0] if locs else ""))
             result.fetched_urls.append(url)
             try:
                 status, html = client.get_text(url)
@@ -237,7 +244,7 @@ def scrape_site_search(
     result = PortalResult(portal["id"], portal["name"], "site_search")
     host = portal.get("host") or ""
     seen: set[str] = set()
-    loc = " ".join(locations[:2]) if locations else "Dubai UAE"
+    loc = " ".join(locations[:2]) if locations else "remote"
     for query in queries:
         q = f'{query} {loc} site:{host}'
         result.fetched_urls.append(q)
@@ -262,12 +269,14 @@ def maybe_firecrawl_html_fallback(
     *,
     api_key: str,
     max_jobs: int,
+    locations: list[str] | None = None,
 ) -> list[Job]:
     jobs: list[Job] = []
     seen: set[str] = set()
+    locs = locations or []
     for query in queries[:1]:
         for template in (portal.get("search_urls") or [])[:1]:
-            url = fill_url(template, query)
+            url = fill_url(template, query, location=(locs[0] if locs else ""))
             try:
                 md = firecrawl_scrape_markdown(url, api_key=api_key)
             except Exception:

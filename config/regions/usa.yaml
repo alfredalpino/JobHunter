@@ -1,0 +1,25 @@
+# Region pack — edit freely
+label: United States
+locations:
+- United States
+country_indeed: usa
+jobspy_sites:
+- indeed
+- linkedin
+- glassdoor
+- google
+- zip_recruiter
+allow_signals:
+- united states
+- usa
+- u.s.
+- remote
+- hybrid
+- visa
+- sponsor
+- nationwide
+reject_signals:
+- india only
+- uae only
+- must be based in india
+- gcc only

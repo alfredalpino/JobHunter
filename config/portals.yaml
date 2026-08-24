@@ -1,12 +1,13 @@
-# Portals: "40 Job Portals in UAE.pdf" + Bayt/GulfTalent/NaukriGulf + UAE employers + GCC/remote boards.
-# Placeholders: {query} {query_plus} {query_dash}
-# Active scrapers: ~110+ (social groups skipped).
+# Portals: UAE/GCC HTML boards + remote APIs. Worldwide majors use optional JobSpy.
+# Untagged portals = UAE-centric (auto-skipped when region is not dubai/uae).
+# Placeholders: {query} {query_plus} {query_dash} {location} {location_plus} {location_slug}
+# Optional portal key: regions: [dubai, worldwide, ...]
 
 defaults:
   delay_seconds: 1.8
   timeout_seconds: 25
   max_jobs_per_portal: 40
-  user_agent: "JobHunter/1.0 (personal UAE job search; aspirant tool)"
+  user_agent: "JobHunter/1.0 (personal job search; respectful crawl)"
 
 queries:
   - network engineer
@@ -59,6 +60,7 @@ portals:
   - id: remoteok
     name: Remote OK (Asia)
     host: remoteok.com
+    regions: [worldwide, remote, dubai, usa, india]
     method: remoteok_api
     search_urls:
       - "https://remoteok.com/api"
@@ -356,6 +358,7 @@ portals:
   - id: remotive
     name: Remotive
     host: remotive.com
+    regions: [worldwide, remote, dubai, usa, india]
     method: remotive_api
     search_urls:
       - "https://remotive.com/api/remote-jobs?search={query_plus}&limit=50"

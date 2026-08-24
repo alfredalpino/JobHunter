@@ -1,0 +1,34 @@
+# Region pack — edit freely
+label: Dubai / UAE
+locations:
+- Dubai
+- UAE
+country_indeed: uae
+jobspy_sites:
+- indeed
+- linkedin
+- google
+- bayt
+allow_signals:
+- uae
+- dubai
+- abu dhabi
+- sharjah
+- gcc
+- gulf
+- saudi
+- qatar
+- bahrain
+- kuwait
+- oman
+- middle east
+- remote
+- worldwide
+- visa
+- sponsor
+reject_signals:
+- united states only
+- us citizen
+- must be us based
+- uk only
+- eu only

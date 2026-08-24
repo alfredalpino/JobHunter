@@ -1,17 +1,20 @@
 # Example aspirant profile — copy this folder and edit, or build via:
-#   ./run.sh easy --resume path/to/cv.pdf --name "Your Name"
+#   ./run.sh easy --resume path/to/cv.pdf --name "Your Name" --region dubai
 candidate:
   name: Example Candidate
   email: you@example.com
-  phone: "+971-00-000-0000"
+  phone: "+00-000-000-0000"
   linkedin: https://www.linkedin.com/in/example/
   location: Dubai / UAE (target)
-  work_auth: Open to UAE/GCC roles (visa sponsorship considered)
+  work_auth: Open to roles with visa sponsorship where applicable
 experience:
   estimated_years: 2.0
-  max_years_required: 3
-  level: mid_or_unknown
-  target_band: 0-3
+  max_years_required: 4
+  level: junior_entry_associate
+  target_band: 0-4
+  credibility: true
+  max_job_level: mid
+  seniority_band: junior
 target_titles:
   - Network Engineer
   - NOC Engineer
@@ -37,6 +40,7 @@ skills_positive:
 certifications:
   - CCNA
 geo:
+  region: dubai
   default_locations:
     - Dubai
     - UAE
@@ -56,17 +60,27 @@ geo:
     - must be us based
     - uk only
     - eu only
+  country_indeed: uae
+  work_mode: any
 scoring:
   min_score_to_keep: 35
   title_weight: 30
   skills_weight: 25
   junior_boost: 15
+  mid_boost: 10
   geo_boost: 20
 recency:
   max_age_days: 14
   reject_unknown_date: true
   bucket_week_1_days: 7
   bucket_week_2_days: 14
+hunt:
+  use_jobspy: true
+  jobspy_sites:
+    - indeed
+    - linkedin
+    - google
+    - bayt
 sources:
   - example
 search_queries:

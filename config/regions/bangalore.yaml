@@ -1,0 +1,23 @@
+# Region pack — edit freely
+label: Bangalore / Bengaluru
+locations:
+- Bangalore
+- Bengaluru
+- India
+country_indeed: india
+jobspy_sites:
+- indeed
+- linkedin
+- naukri
+- google
+allow_signals:
+- bangalore
+- bengaluru
+- karnataka
+- india
+- remote
+- hybrid
+reject_signals:
+- us citizen
+- must be us based
+- uae only

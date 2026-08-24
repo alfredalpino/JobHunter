@@ -1,0 +1,59 @@
+# Expand resume skills into synonyms for matching (not search-keyword spam).
+# Matching is still substring-based against the expanded skills_positive list.
+
+synonyms:
+  network:
+    - networking
+    - lan
+    - wan
+    - tcp/ip
+  cisco:
+    - ccna
+    - ccnp
+    - ios
+  noc:
+    - network operations
+    - network operations center
+  firewall:
+    - palo alto
+    - fortinet
+    - checkpoint
+  vpn:
+    - ipsec
+    - ssl vpn
+    - wireguard
+  azure:
+    - microsoft azure
+    - az-104
+  aws:
+    - amazon web services
+    - ec2
+  linux:
+    - unix
+    - ubuntu
+    - rhel
+  python:
+    - scripting
+    - automation
+  troubleshooting:
+    - problem solving
+    - diagnostics
+  "it support":
+    - helpdesk
+    - help desk
+    - service desk
+    - desktop support
+  security:
+    - cybersecurity
+    - infosec
+  cloud:
+    - saas
+    - iaas
+  devops:
+    - ci/cd
+    - kubernetes
+  data:
+    - analytics
+    - sql
+  analyst:
+    - analysis

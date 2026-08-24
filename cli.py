@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""JobHunter CLI — simple Dubai job hunt."""
+"""JobHunter CLI — worldwide job search / filter engine."""
 from __future__ import annotations
 
 import argparse
@@ -11,7 +11,8 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from pipeline import run_hunt  # noqa: E402
-from profile_builder import build_profile, list_aspirants, save_aspirant  # noqa: E402
+from preferences import list_regions  # noqa: E402
+from profile_builder import build_profile, list_aspirants, load_aspirant, save_aspirant  # noqa: E402
 
 
 def cmd_analyze(args: argparse.Namespace) -> int:
@@ -21,31 +22,45 @@ def cmd_analyze(args: argparse.Namespace) -> int:
     paste = ""
     if args.linkedin_paste:
         paste = Path(args.linkedin_paste).read_text(encoding="utf-8")
+    overrides = {}
+    if args.name or args.email:
+        overrides["candidate"] = {
+            k: v
+            for k, v in {"name": args.name or "", "email": args.email or ""}.items()
+            if v
+        }
+    region = (getattr(args, "region", None) or "").strip() or None
+    prefs = {}
+    if region:
+        prefs["region"] = region
+    if getattr(args, "locations", None):
+        prefs["locations"] = [x.strip() for x in args.locations.split(",") if x.strip()]
     profile = build_profile(
         resume_path=resume,
         linkedin_url=args.linkedin or "",
         linkedin_paste=paste,
-        manual_overrides={
-            "candidate": {
-                k: v
-                for k, v in {"name": args.name or "", "email": args.email or ""}.items()
-                if v
-            }
-        }
-        if (args.name or args.email)
-        else None,
+        manual_overrides=overrides or None,
         use_ai=bool(getattr(args, "ai", False)),
         ai_model=args.model,
     )
-    path = save_aspirant(profile, aspirant_id=args.id)
+    path = save_aspirant(
+        profile,
+        aspirant_id=args.id,
+        preferences=prefs or None,
+        region=region,
+    )
     if resume:
         shutil.copy2(resume, path.parent / f"cv{resume.suffix.lower()}")
+    profile = load_aspirant(path.parent.name)
     cand = profile["candidate"]
     print(f"Saved → {path}")
     print(f"  Id:      {path.parent.name}")
     print(f"  Name:    {cand.get('name')}")
     print(f"  Search:  {', '.join(profile.get('search_queries') or [])}")
+    print(f"  Region:  {(profile.get('geo') or {}).get('region') or (profile.get('geo') or {}).get('default_locations')}")
+    print(f"  Level:   {(profile.get('experience') or {}).get('level')} (max job: {(profile.get('experience') or {}).get('max_job_level')})")
     print(f"  Sources: {', '.join(profile.get('sources') or [])}")
+    print(f"  Prefs:   {path.parent / 'preferences.yaml'}")
     if profile.get("plain_summary"):
         print(f"\n{profile['plain_summary']}")
     print(f"\nNext: ./run.sh easy-hunt --id {path.parent.name}")
@@ -79,6 +94,13 @@ def cmd_list(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_regions(_: argparse.Namespace) -> int:
+    for name in list_regions():
+        print(name)
+    print("\nEdit: config/regions/<name>.yaml  or  aspirants/<id>/preferences.yaml")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -91,6 +113,14 @@ def main() -> int:
         p.add_argument("--name")
         p.add_argument("--email")
         p.add_argument("--id", help="Profile folder name")
+        p.add_argument(
+            "--region",
+            help=f"Region pack: {', '.join(list_regions())}",
+        )
+        p.add_argument(
+            "--locations",
+            help='Comma-separated cities/countries, e.g. "Bangalore,India"',
+        )
         p.add_argument(
             "--ai",
             action="store_true",
@@ -117,6 +147,9 @@ def main() -> int:
 
     p_l = sub.add_parser("list", help="List saved profiles")
     p_l.set_defaults(func=cmd_list)
+
+    p_r = sub.add_parser("regions", help="List region packs")
+    p_r.set_defaults(func=cmd_regions)
 
     args = parser.parse_args()
     # easy-hunt: if user did not pass --quick explicitly, keep default_quick True

@@ -154,6 +154,12 @@ def analyze_resume_text(text: str) -> dict[str, Any]:
     max_years_required = 3 if junior_signal or years is None or years <= 3 else min(int(years) + 1, 8)
     target_band = "0-3" if max_years_required <= 3 else f"0-{max_years_required}"
 
+    project_cred = bool(
+        re.search(
+            r"\b(project|portfolio|github|capstone|built|deployed|open\s*source)\b",
+            blob,
+        )
+    )
     return {
         "source": "resume",
         "candidate": {
@@ -168,6 +174,7 @@ def analyze_resume_text(text: str) -> dict[str, Any]:
             "max_years_required": max_years_required,
             "level": level,
             "target_band": target_band,
+            "credibility": project_cred or bool(certs) or (years is not None and years >= 2),
         },
         "target_titles": target_titles,
         "search_queries": _dedupe(search_seed)[:4],
@@ -198,10 +205,35 @@ def _estimate_years(blob: str) -> float | None:
 
 
 def _guess_location(blob: str) -> str:
-    for loc in ("dubai", "abu dhabi", "sharjah", "uae", "lucknow", "india", "riyadh", "doha"):
-        if loc in blob:
-            return loc.title() if loc != "uae" else "UAE"
-    return "Dubai / UAE (target)"
+    places = (
+        ("bangalore", "Bangalore"),
+        ("bengaluru", "Bengaluru"),
+        ("lucknow", "Lucknow"),
+        ("hyderabad", "Hyderabad"),
+        ("mumbai", "Mumbai"),
+        ("pune", "Pune"),
+        ("delhi", "Delhi"),
+        ("warsaw", "Warsaw"),
+        ("alberta", "Alberta"),
+        ("calgary", "Calgary"),
+        ("seattle", "Seattle"),
+        ("washington", "Washington"),
+        ("dubai", "Dubai"),
+        ("abu dhabi", "Abu Dhabi"),
+        ("sharjah", "Sharjah"),
+        ("uae", "UAE"),
+        ("riyadh", "Riyadh"),
+        ("doha", "Doha"),
+        ("india", "India"),
+        ("canada", "Canada"),
+        ("poland", "Poland"),
+        ("united states", "United States"),
+        ("usa", "USA"),
+    )
+    for needle, label in places:
+        if needle in blob:
+            return label
+    return ""
 
 
 def _title_must_from_skills(skills: list[str], titles: list[str]) -> list[str]:

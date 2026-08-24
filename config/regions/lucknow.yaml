@@ -1,0 +1,24 @@
+# Region pack — edit freely
+label: Lucknow
+locations:
+- Lucknow
+- Uttar Pradesh
+- India
+country_indeed: india
+jobspy_sites:
+- indeed
+- linkedin
+- naukri
+- google
+allow_signals:
+- lucknow
+- uttar pradesh
+- india
+- remote
+- hybrid
+- noida
+- delhi
+reject_signals:
+- us citizen
+- must be us based
+- uae only

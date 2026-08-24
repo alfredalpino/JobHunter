@@ -5,6 +5,7 @@ from typing import Any
 
 from models import Job
 from recency import apply_recency
+from seniority import reject_for_seniority
 
 JUNIOR = re.compile(
     r"\b(junior|jr\.?|entry[\s-]?level|intern|graduate|new grad|noc l1|l1)\b",
@@ -112,6 +113,13 @@ def score_job(job: Job, profile: dict[str, Any]) -> Job:
         job.score = 0
         return job
 
+    seniority_reason = reject_for_seniority(job.title or "", profile)
+    if seniority_reason:
+        job.reject_reason = seniority_reason
+        job.eligible = False
+        job.score = 0
+        return job
+
     title_hit = any(_has_phrase(title, sig) for sig in must) if must else True
     if must and not title_hit:
         job.reject_reason = "title outside aspirant skill band"
@@ -140,6 +148,12 @@ def score_job(job: Job, profile: dict[str, Any]) -> Job:
     score += min(int(scoring.get("skills_weight") or 25), 5 * sum(1 for s in skills if s in blob))
     if JUNIOR.search(title) or (ASSOCIATE.search(title) and title_hit):
         score += int(scoring.get("junior_boost") or 15)
+    exp = profile.get("experience") or {}
+    if exp.get("credibility") and exp.get("max_job_level") == "mid":
+        # Strong juniors: reward solid mid titles (no senior/exec words)
+        if not re.search(r"\b(senior|sr\.?|staff|principal|director|head of|chief|vp)\b", title, re.I):
+            if title_hit or any(t in title for t in targets):
+                score += int(scoring.get("mid_boost") or 10)
     if any(g in blob for g in geo_allow):
         score += int(scoring.get("geo_boost") or 20)
 

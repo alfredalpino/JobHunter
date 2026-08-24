@@ -1,0 +1,25 @@
+# Region pack — edit freely
+label: Washington (state or DC — refine in locations)
+locations:
+- Washington
+- United States
+country_indeed: usa
+jobspy_sites:
+- indeed
+- linkedin
+- glassdoor
+- google
+- zip_recruiter
+allow_signals:
+- washington
+- seattle
+- bellevue
+- redmond
+- usa
+- united states
+- remote
+- hybrid
+reject_signals:
+- india only
+- uae only
+- gcc only

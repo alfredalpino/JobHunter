@@ -1,0 +1,22 @@
+# Region pack — edit freely
+label: Warsaw / Poland
+locations:
+- Warsaw
+- Poland
+country_indeed: poland
+jobspy_sites:
+- indeed
+- linkedin
+- google
+allow_signals:
+- warsaw
+- poland
+- polska
+- remote
+- hybrid
+- eu
+- europe
+reject_signals:
+- us citizen only
+- india only
+- uae only

@@ -1,0 +1,57 @@
+# JobHunter preferences — copy to aspirants/<your-id>/preferences.yaml and edit.
+# Plain English. The program merges this over your CV-built profile.yaml.
+#
+# Quick start:
+#   1) ./run.sh easy --resume your.pdf --name "Your Name" --region dubai
+#   2) Edit aspirants/<id>/preferences.yaml
+#   3) ./run.sh easy-hunt --id <id>
+
+# Region pack name from config/regions/ (dubai, usa, india, bangalore, lucknow,
+# alberta, washington, warsaw, remote, worldwide) OR leave blank and fill geo below.
+region: dubai
+
+# Free-form places (city / country / state). Used for search + geo filters.
+locations:
+  - Dubai
+  - UAE
+
+# Target roles (optional — CV usually fills these)
+# target_titles:
+#   - Network Engineer
+#   - NOC Engineer
+
+# Extra skills you want matched (synonyms expand automatically)
+# must_have_skills:
+#   - cisco
+#   - troubleshooting
+
+# Titles to never show (added to CV excludes)
+# exclude_titles:
+#   - sales
+#   - chef
+
+# Seniority band: intern | junior | mid | senior | lead | executive
+# Leave blank to use CV estimate. Juniors never get executive roles.
+seniority_band: junior
+
+# Work authorization note (shown in profile; soft filter via keywords)
+work_auth: "Open to roles with visa sponsorship where applicable"
+
+# remote | onsite | hybrid | any
+work_mode: any
+
+# Prefer JobSpy major boards (Indeed/LinkedIn/Glassdoor/Google/…) for this region.
+# Soft dependency: pip install python-jobspy  (optional)
+use_jobspy: true
+
+# JobSpy boards (subset). Examples: indeed, linkedin, glassdoor, google, zip_recruiter, bayt, naukri
+jobspy_sites:
+  - indeed
+  - linkedin
+  - google
+
+# Indeed/Glassdoor country code / name (usa, india, uae, uk, canada, poland, …)
+country_indeed: uae
+
+# Keep ≤14 day freshness (product rule)
+recency_max_days: 14

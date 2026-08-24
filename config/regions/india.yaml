@@ -1,0 +1,30 @@
+# Region pack — edit freely
+label: India
+locations:
+- India
+country_indeed: india
+jobspy_sites:
+- indeed
+- linkedin
+- naukri
+- google
+allow_signals:
+- india
+- bangalore
+- bengaluru
+- hyderabad
+- mumbai
+- pune
+- delhi
+- noida
+- gurgaon
+- gurugram
+- chennai
+- lucknow
+- remote
+- hybrid
+reject_signals:
+- us citizen
+- must be us based
+- uae only
+- gcc only

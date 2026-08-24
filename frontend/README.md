@@ -2,85 +2,81 @@
 
 Next.js (App Router) product site for **JobHunter** by **Alfredterminal**.
 
-- Landing: brand-first hero, how it works, preferences explainer
-- App shell: Analyze resume + Prefer region (API stubs)
-- Does **not** replace `./run.sh` / Streamlit — Python CLI remains the hunting engine
+Fully operable in the browser:
+
+1. Analyze resume (paste text or PDF/TXT) — optional AI polish
+2. Confirm / edit profile + pick region
+3. Preferences (date window, seniority, YAML)
+4. Hunt via public job APIs + TypeScript eligibility (role families, seniority, recency)
+5. **Today's 10** queue · mark applied · export markdown — **no auto-apply**
+
+Python `./run.sh` remains for power users (JobSpy / HTML portals). Optional deep hunt: `scripts/deep_hunt_server.py`.
 
 ## Stack
 
 - Next.js 16 + React 19 + TypeScript
-- Tailwind CSS v4
-- Fonts: Fraunces (display) + Outfit (UI)
-- Deploy target: Vercel (also works on Cloudflare Pages with Next adapter)
+- Tailwind CSS v4 · Fraunces + Outfit
+- `unpdf` for serverless PDF text extract
 
 ## Local run
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev -- -p 3000 -H 127.0.0.1
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://127.0.0.1:3000/app](http://127.0.0.1:3000/app).
 
 | Path | Purpose |
 | --- | --- |
-| `/` | Landing |
-| `/app` | App shell CTAs |
+| `/` | Marketing landing |
+| `/app` | Operable hunt wizard |
 | `/api/health` | Health JSON |
-| `/api/regions` | Region pack list (mirrors `config/regions/`) |
-| `/api/analyze` | Stub — documents CLI bridge; does not parse CVs yet |
+| `/api/regions` | Region packs (`config/regions/*.yaml` when present) |
+| `/api/analyze` | Resume → profile |
+| `/api/hunt` | Fetch + filter jobs |
+| `/api/polish` | Opt-in Gemini Flash polish |
+| `/api/deep-hunt` | Proxy to local Python deep hunt |
+
+## Optional API keys
+
+Copy `.env.example` → `.env.local`:
+
+| Key | Purpose |
+| --- | --- |
+| `ADZUNA_APP_ID` + `ADZUNA_APP_KEY` | Country-local Adzuna listings ([developer.adzuna.com](https://developer.adzuna.com/) free tier) |
+| `JOOBLE_API_KEY` | Optional Jooble aggregator ([jooble.org](https://jooble.org/api/about)) |
+| `USAJOBS_USER_AGENT` + `USAJOBS_API_KEY` | USAJobs for USA regions |
+| `GEMINI_API_KEY` | Opt-in profile / match polish (checkbox in UI) |
+| `DEEP_HUNT_URL` | e.g. `http://127.0.0.1:8765` after starting `scripts/deep_hunt_server.py` |
+
+Always-on web sources (no keys): Remote OK, Remotive, Arbeitnow, Jobicy, Himalayas, We Work Remotely, The Muse, NoDesk, Dynamite Jobs (+ Job Bank Canada for CA regions).
+
+Google Jobs / Indeed / LinkedIn / Glassdoor / Bayt run via the **Python CLI** (`python-jobspy`).
+
+## Date windows
+
+In preferences / results: This week · Last week · 2–3 weeks · 3–4 weeks · Up to 1 month · All fresh (≤14 default). Fetch max age follows the selected window (up to 30 days).
+
+## Deploy to Vercel (alfredterminal.xyz)
+
+1. Import `alfredalpino/JobHunter` in Vercel.
+2. Set **Root Directory** to `frontend`.
+3. Framework: Next.js. Build: `npm run build`.
+4. Env (optional): Adzuna, USAJobs, `GEMINI_API_KEY`. Do **not** set `DEEP_HUNT_URL` on Vercel (local only).
+5. Deploy → confirm `/` and `/api/health`.
+6. Attach domain `alfredterminal.xyz` / `www`.
+
+## Tests
 
 ```bash
-npm run build
-npm start
+cd frontend && npm test
 ```
 
-## Logo
+## Risks
 
-- `public/logo.png` — site favicon / header
-- Repo copy: `../docs/assets/logo.png`
-
-## Deploy to https://alfredterminal.xyz
-
-No prior JobHunter-specific DNS config was found in sibling trees; AlfredTerminal historically was FastAPI. Use this checklist:
-
-### A. Vercel (recommended)
-
-1. Push the `frontend` branch (or monorepo root) to GitHub (`alfredalpino/JobHunter`).
-2. In [Vercel](https://vercel.com): **Add New Project** → import `JobHunter`.
-3. Set **Root Directory** to `frontend`.
-4. Framework: Next.js (auto). Build: `npm run build`. Output: default.
-5. Deploy a preview, confirm `/` and `/api/health`.
-6. **Domains** → add `alfredterminal.xyz` and `www.alfredterminal.xyz`.
-7. At your DNS host, add the records Vercel shows (usually `A` / `CNAME`).
-8. Wait for TLS; set primary domain to apex or www.
-
-### B. Cloudflare Pages
-
-1. Connect the same GitHub repo.
-2. Root directory: `frontend`.
-3. Use Cloudflare’s Next.js support (OpenNext / `@cloudflare/next-on-pages` as required by current CF docs).
-4. Attach custom domain `alfredterminal.xyz` in Cloudflare.
-
-### DNS checklist
-
-- [ ] Apex `alfredterminal.xyz` points at host (A/ALIAS/CNAME per provider)
-- [ ] `www` CNAME to host or apex
-- [ ] HTTPS certificate issued
-- [ ] `/api/health` returns JSON in production
-- [ ] Open Graph image loads (`/logo.png`)
-
-### Later: connect Python hunt
-
-Wire a secured backend (not committed secrets) that:
-
-1. Accepts resume upload + region
-2. Invokes the same logic as `./run.sh easy` / `easy-hunt` (subprocess or shared package)
-3. Returns `eligible.md` / JSON
-
-Until then, the site CTAs point people at the local CLI. **No auto-apply** in either path.
-
-## Env
-
-None required for the static product shell. Future API keys belong in host secrets — never in git.
+- Public APIs may rate-limit or change ToS — treat as best-effort.
+- Remote-board bias without Adzuna/JobSpy.
+- Unknown posting dates are rejected.
+- PDF scans without text need paste fallback.

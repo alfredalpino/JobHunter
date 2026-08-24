@@ -235,7 +235,7 @@ def save_aspirant(
             "work_auth": (profile.get("candidate") or {}).get("work_auth") or "",
             "work_mode": geo.get("work_mode") or "any",
             "use_jobspy": True,
-            "jobspy_sites": list((profile.get("hunt") or {}).get("jobspy_sites") or ["indeed", "linkedin", "google"]),
+            "jobspy_sites": list((profile.get("hunt") or {}).get("jobspy_sites") or ["indeed", "linkedin", "google", "glassdoor"]),
             "country_indeed": geo.get("country_indeed") or "",
             "recency_max_days": int((profile.get("recency") or {}).get("max_age_days") or 14),
         }

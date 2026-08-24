@@ -7,6 +7,7 @@ jobspy_sites:
 - indeed
 - linkedin
 - google
+- glassdoor
 allow_signals:
 - remote
 - worldwide

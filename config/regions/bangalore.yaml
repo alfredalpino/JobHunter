@@ -10,6 +10,7 @@ jobspy_sites:
 - linkedin
 - naukri
 - google
+- glassdoor
 allow_signals:
 - bangalore
 - bengaluru

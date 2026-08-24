@@ -11,28 +11,28 @@ export function PreferencesExplainer() {
           Preferences, in plain English
         </h2>
         <p className="mt-3 max-w-2xl text-sand-muted">
-          After you analyze a resume, JobHunter writes a simple settings file you
-          can edit in any text editor. No dashboard maze.
+          In the app you edit a simple form that writes preferences.yaml. Same
+          fields as the CLI — region, cities, seniority, skills to require, titles
+          to skip. Stored in your browser; download anytime.
         </p>
         <div className="mt-10 grid gap-8 md:grid-cols-2">
           <div>
             <h3 className="text-sm font-medium uppercase tracking-[0.16em] text-seafoam">
-              Your file
+              In the app
             </h3>
             <p className="mt-3 font-mono text-sm text-sand">
-              aspirants/&lt;your-id&gt;/preferences.yaml
+              /app → Preferences → preferences.yaml
             </p>
             <p className="mt-4 text-sm leading-relaxed text-sand-muted">
-              Set region, cities, seniority band, must-have skills, titles to skip,
-              remote vs onsite, and which job boards to search. Copy the commented
-              template from{" "}
-              <code className="text-sand">config/preferences.example.yaml</code>.
+              Power users can still use{" "}
+              <code className="text-sand">aspirants/&lt;id&gt;/preferences.yaml</code>{" "}
+              with <code className="text-sand">./run.sh</code> locally.
             </p>
             <Link
-              href="/app#region"
+              href="/app"
               className="focus-ring mt-6 inline-flex text-sm font-medium text-copper hover:underline"
             >
-              Prefer a region in the app →
+              Open the app →
             </Link>
           </div>
           <pre className="overflow-x-auto rounded-2xl border border-[var(--line)] bg-ink-mid/60 p-5 text-xs leading-relaxed text-seafoam shadow-[inset_0_0_40px_var(--glow)]">
@@ -42,7 +42,6 @@ locations:
   - UAE
 seniority_band: junior
 work_mode: any
-use_jobspy: true
 recency_max_days: 14`}
           </pre>
         </div>

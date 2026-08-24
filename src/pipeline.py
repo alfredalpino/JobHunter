@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
@@ -12,11 +13,16 @@ import yaml
 
 from adapters import (
     maybe_firecrawl_html_fallback,
+    scrape_arbeitnow,
     scrape_html,
+    scrape_himalayas,
+    scrape_jobicy,
     scrape_remotive,
     scrape_remoteok,
     scrape_rss,
     scrape_site_search,
+    scrape_themuse,
+    scrape_usajobs,
 )
 from jobspy_adapter import scrape_jobspy
 from eligibility import score_job
@@ -24,8 +30,22 @@ from firecrawl_client import load_firecrawl_key
 from http_client import PoliteClient
 from models import Job, PortalResult
 from profile_builder import load_aspirant, load_defaults
+from scrape_cache import ScrapeCache
 
 ROOT = Path(__file__).resolve().parents[1]
+
+FAST_METHODS = frozenset(
+    {
+        "remoteok_api",
+        "remotive_api",
+        "rss",
+        "arbeitnow_api",
+        "jobicy_api",
+        "himalayas_api",
+        "themuse_api",
+        "usajobs_api",
+    }
+)
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -67,11 +87,29 @@ def run_hunt(
     timeout = float(scrape_defaults.get("timeout_seconds") or 25)
     max_jobs = int(scrape_defaults.get("max_jobs_per_portal") or 40)
     ua = str(scrape_defaults.get("user_agent") or "JobHunter/1.0")
+    fast_workers = int(scrape_defaults.get("fast_concurrency") or 6)
+    slow_workers = int(scrape_defaults.get("slow_concurrency") or 3)
+    cache_ttl = int(scrape_defaults.get("cache_ttl_seconds") or 3600)
+    http_retries = int(scrape_defaults.get("http_retries") or 2)
     api_key = load_firecrawl_key(ROOT) if use_firecrawl else ""
 
-    client = PoliteClient(user_agent=ua, timeout=timeout, delay=delay)
+    cache: ScrapeCache | None = None
+    if cache_ttl > 0:
+        cache = ScrapeCache(ROOT / "data" / "cache" / "scrapes", ttl_seconds=cache_ttl)
+
+    client = PoliteClient(
+        user_agent=ua,
+        timeout=timeout,
+        delay=delay,
+        retries=http_retries,
+        cache=cache,
+    )
     results: list[PortalResult] = []
     try:
+        selected_region = str((profile.get("geo") or {}).get("region") or "").lower()
+        uae_regions = {"", "dubai", "uae"}
+        work: list[dict[str, Any]] = []
+
         for portal in portals_cfg.get("portals") or []:
             if portal_ids and portal["id"] not in portal_ids:
                 continue
@@ -86,17 +124,13 @@ def run_hunt(
                     )
                 )
                 continue
-            # Region-aware portal selection:
-            # - Untagged portals are treated as UAE/Dubai legacy boards
-            # - Non-UAE regions rely on JobSpy + remote APIs + explicitly tagged portals
             portal_regions = [str(r).lower() for r in (portal.get("regions") or [])]
-            selected_region = str((profile.get("geo") or {}).get("region") or "").lower()
-            uae_regions = {"", "dubai", "uae"}
-            method = portal.get("method") or "html"
-            if selected_region and selected_region not in uae_regions and selected_region not in {"remote", "worldwide"}:
+            if selected_region and selected_region not in uae_regions and selected_region not in {
+                "remote",
+                "worldwide",
+            }:
                 if not portal_regions:
-                    # Legacy UAE HTML boards — skip for other countries
-                    if method not in {"remoteok_api", "remotive_api", "rss", "jobspy"}:
+                    if method not in FAST_METHODS | {"jobspy"}:
                         results.append(
                             PortalResult(
                                 portal["id"],
@@ -116,8 +150,15 @@ def run_hunt(
                         )
                     )
                     continue
-            if quick and method not in {"remoteok_api", "remotive_api", "rss"}:
+            if quick and method not in FAST_METHODS:
                 continue
+            work.append(portal)
+
+        fast_portals = [p for p in work if (p.get("method") or "html") in FAST_METHODS]
+        slow_portals = [p for p in work if (p.get("method") or "html") not in FAST_METHODS]
+
+        def _scrape_portal(portal: dict[str, Any]) -> PortalResult:
+            method = portal.get("method") or "html"
             print(f"→ {portal['name']} [{method}]")
             try:
                 result = _dispatch(
@@ -129,6 +170,7 @@ def run_hunt(
                     api_key=api_key,
                     delay=delay,
                     locations=locations,
+                    profile=profile,
                 )
                 if (
                     not result.jobs
@@ -136,7 +178,7 @@ def run_hunt(
                     and method == "html"
                     and portal.get("fallback") == "site_search"
                 ):
-                    print("  html empty — Firecrawl site search fallback")
+                    print(f"  {portal['name']}: html empty — Firecrawl site search fallback")
                     fb = scrape_site_search(
                         portal,
                         queries[:1],
@@ -149,15 +191,64 @@ def run_hunt(
                         result.method = "html+site_search"
                     elif portal.get("js_heavy"):
                         result.jobs = maybe_firecrawl_html_fallback(
-                            portal, queries, api_key=api_key, max_jobs=max_jobs, locations=locations
+                            portal,
+                            queries,
+                            api_key=api_key,
+                            max_jobs=max_jobs,
+                            locations=locations,
                         )
-                results.append(result)
-                print(f"  {len(result.jobs)} listings" + (f" ({result.error})" if result.error else ""))
+                note = f" ({result.error})" if result.error else ""
+                print(f"  {portal['name']}: {len(result.jobs)} listings{note}")
+                return result
             except Exception as exc:  # noqa: BLE001
-                results.append(PortalResult(portal["id"], portal["name"], method, error=str(exc)))
+                print(f"  {portal['name']}: ! {exc}")
+                return PortalResult(portal["id"], portal["name"], method, error=str(exc))
+
+        def _run_tier(portals: list[dict[str, Any]], workers: int, label: str) -> None:
+            if not portals:
+                return
+            n = max(1, min(workers, len(portals)))
+            print(f"⋯ {label}: {len(portals)} portals, concurrency={n}")
+            with ThreadPoolExecutor(max_workers=n) as pool:
+                futures = [pool.submit(_scrape_portal, p) for p in portals]
+                for fut in as_completed(futures):
+                    results.append(fut.result())
+
+        _run_tier(fast_portals, fast_workers, "fast tier (API/RSS)")
+        _run_tier(slow_portals, slow_workers, "slow tier (HTML/site_search)")
+
+        # Major worldwide boards (Indeed / LinkedIn / Google Jobs / …) via optional JobSpy
+        hunt = profile.get("hunt") or {}
+        use_jobspy = bool(hunt.get("use_jobspy", True))
+        jobspy_allowed = not portal_ids or "jobspy" in portal_ids
+        if use_jobspy and jobspy_allowed and not quick:
+            sites = list(hunt.get("jobspy_sites") or ["indeed", "linkedin", "google"])
+            country = str((profile.get("geo") or {}).get("country_indeed") or "")
+            work_mode = str((profile.get("geo") or {}).get("work_mode") or "any").lower()
+            is_remote = True if work_mode == "remote" else None
+            print(f"→ JobSpy major boards [{', '.join(sites)}]")
+            try:
+                js_result = scrape_jobspy(
+                    queries=queries,
+                    locations=locations,
+                    sites=sites,
+                    country_indeed=country,
+                    hours_old=int((profile.get("recency") or {}).get("max_age_days") or 14) * 24,
+                    results_wanted=min(max_jobs, 25),
+                    is_remote=is_remote,
+                )
+                results.append(js_result)
+                note = f" ({js_result.error})" if js_result.error else ""
+                skip = f" [{js_result.skipped}]" if js_result.skipped else ""
+                print(f"  {len(js_result.jobs)} listings{note}{skip}")
+            except Exception as exc:  # noqa: BLE001
+                results.append(PortalResult("jobspy", "JobSpy major boards", "jobspy", error=str(exc)))
                 print(f"  ! {exc}")
     finally:
         client.close()
+
+    if cache is not None:
+        print(f"⋯ scrape cache {cache.stats()}")
 
     raw_jobs: list[Job] = []
     seen: set[str] = set()
@@ -219,11 +310,22 @@ def _dispatch(
     api_key: str,
     delay: float,
     locations: list[str],
+    profile: dict[str, Any] | None = None,
 ) -> PortalResult:
     if method == "remoteok_api":
         return scrape_remoteok(client, portal, queries)
     if method == "remotive_api":
         return scrape_remotive(client, portal, queries)
+    if method == "arbeitnow_api":
+        return scrape_arbeitnow(client, portal, queries)
+    if method == "jobicy_api":
+        return scrape_jobicy(client, portal, queries)
+    if method == "himalayas_api":
+        return scrape_himalayas(client, portal, queries)
+    if method == "themuse_api":
+        return scrape_themuse(client, portal, queries, locations=locations)
+    if method == "usajobs_api":
+        return scrape_usajobs(client, portal, queries, locations=locations, profile=profile or {})
     if method == "rss":
         return scrape_rss(client, portal, queries)
     if method == "site_search":

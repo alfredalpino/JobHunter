@@ -1,15 +1,15 @@
 const steps = [
   {
     title: "Analyze your resume",
-    body: "Local profile from your CV — skills, titles, seniority. AI polish is optional and off by default.",
+    body: "Paste text or upload PDF/TXT. We extract titles, skills, and seniority in the browser app — no Gemini required.",
   },
   {
-    title: "Choose a region",
-    body: "Dubai, USA, India, Bangalore, Lucknow, Alberta, Washington, Warsaw, remote, or worldwide packs.",
+    title: "Choose a region & preferences",
+    body: "Dubai, USA, India, cities, remote, or worldwide. Edit a simple form or preferences.yaml (saved in your browser).",
   },
   {
     title: "Hunt fresh matches",
-    body: "Scrapers and JobSpy find listings. We keep ≤14-day posts that fit you. You apply yourself.",
+    body: "Public job APIs + TypeScript filters keep ≤14-day roles that fit you. You open links and apply yourself. Never auto-apply.",
   },
 ];
 
@@ -21,7 +21,7 @@ export function HowItWorks() {
           How it works
         </h2>
         <p className="mt-3 max-w-2xl text-sand-muted">
-          One clear path from CV to a shortlist. Hunting never burns AI credits.
+          One clear path from CV to a shortlist — fully operable on this site.
         </p>
         <ol className="mt-12 grid gap-10 md:grid-cols-3">
           {steps.map((step, index) => (

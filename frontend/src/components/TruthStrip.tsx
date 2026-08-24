@@ -11,9 +11,9 @@ export function TruthStrip() {
           <ul className="mt-6 space-y-3 text-sm text-sand-muted">
             <li>✓ Matches roles to your CV with skill synonyms and seniority guardrails</li>
             <li>✓ Keeps only fresh ads (last 7 days + 8–14 days)</li>
-            <li>✓ Runs locally via CLI / Streamlit; this site is the product face</li>
+            <li>✓ Works in the browser on Vercel; Python CLI remains for power users</li>
             <li>✗ Does not auto-apply or message employers for you</li>
-            <li>✗ Does not scrape with Gemini — hunt stays local and cheap</li>
+            <li>✗ Does not scrape with Gemini — hunt stays cheap and local to the filter</li>
           </ul>
         </div>
         <Link

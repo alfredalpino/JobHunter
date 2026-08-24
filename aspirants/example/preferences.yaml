@@ -49,6 +49,8 @@ jobspy_sites:
   - indeed
   - linkedin
   - google
+  - glassdoor
+  - bayt
 
 # Indeed/Glassdoor country code / name (usa, india, uae, uk, canada, poland, …)
 country_indeed: uae

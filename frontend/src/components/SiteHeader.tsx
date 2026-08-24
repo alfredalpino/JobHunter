@@ -4,6 +4,7 @@ import Link from "next/link";
 const links = [
   { href: "/#how", label: "How it works" },
   { href: "/#preferences", label: "Preferences" },
+  { href: "/status", label: "Status" },
   { href: "/app", label: "Open app" },
 ];
 
@@ -23,8 +24,8 @@ export function SiteHeader() {
           <span className="block font-[family-name:var(--font-fraunces)] text-lg tracking-tight text-sand">
             JobHunter
           </span>
-          <span className="block text-[11px] uppercase tracking-[0.18em] text-sand-muted">
-            by Alfredterminal
+          <span className="block text-[11px] tracking-[0.06em] text-sand-muted">
+            By Alfred alpino
           </span>
         </span>
       </Link>

@@ -29,6 +29,11 @@ scraping:
   delay_seconds: 1.8
   timeout_seconds: 25
   max_jobs_per_portal: 40
+  # Per-host delay; workers run across different hosts in parallel
+  fast_concurrency: 6
+  slow_concurrency: 3
+  cache_ttl_seconds: 3600
+  http_retries: 2
   user_agent: "JobHunter/1.0 (personal job search tool; respectful crawl)"
 
 # Antigravity AI — OFF by default (hunt never uses this)

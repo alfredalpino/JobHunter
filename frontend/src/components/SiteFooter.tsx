@@ -10,7 +10,10 @@ export function SiteFooter() {
         </p>
         <div className="flex flex-wrap gap-5">
           <Link href="/app" className="focus-ring hover:text-sand">
-            App shell
+            Open app
+          </Link>
+          <Link href="/status" className="focus-ring hover:text-sand">
+            Status
           </Link>
           <a
             href="https://github.com/alfredalpino/JobHunter"

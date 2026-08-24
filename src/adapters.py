@@ -149,6 +149,323 @@ def scrape_remotive(client: PoliteClient, portal: dict[str, Any], queries: list[
     return result
 
 
+def _query_match(title: str, blob: str, queries: list[str]) -> bool:
+    low_title = title.lower()
+    low_blob = blob.lower()
+    if REMOTE_TAGS.search(title):
+        return True
+    for q in queries:
+        tokens = [t for t in q.lower().split() if len(t) > 2]
+        if not tokens:
+            if q.lower() in low_title or q.lower() in low_blob:
+                return True
+            continue
+        if all(t in low_blob for t in tokens) or q.lower() in low_title:
+            return True
+    return False
+
+
+def scrape_arbeitnow(client: PoliteClient, portal: dict[str, Any], queries: list[str]) -> PortalResult:
+    result = PortalResult(portal["id"], portal["name"], "arbeitnow_api")
+    templates = portal.get("search_urls") or [
+        "https://www.arbeitnow.com/api/job-board-api?search={query_plus}"
+    ]
+    seen: set[str] = set()
+    for query in queries[:2]:
+        url = fill_url(templates[0], query)
+        result.fetched_urls.append(url)
+        status, data = client.get_json(url)
+        if status != 200 or not isinstance(data, dict):
+            result.error = f"Arbeitnow HTTP {status}"
+            continue
+        for row in data.get("data") or []:
+            if not isinstance(row, dict):
+                continue
+            job_url = str(row.get("url") or "")
+            title = str(row.get("title") or "")
+            if not job_url or not title or job_url in seen:
+                continue
+            desc = re.sub(r"<[^>]+>", " ", str(row.get("description") or ""))
+            blob = f"{title} {row.get('location') or ''} {desc[:500]}"
+            if not _query_match(title, blob, queries):
+                continue
+            seen.add(job_url)
+            created = row.get("created_at")
+            result.jobs.append(
+                Job(
+                    title=title[:180],
+                    company=str(row.get("company_name") or "unspecified")[:120],
+                    url=job_url,
+                    portal=portal["id"],
+                    location=str(row.get("location") or "Remote"),
+                    summary=desc[:400],
+                    source_method="arbeitnow_api",
+                    query=query,
+                    posted_at=str(created) if created is not None else "",
+                )
+            )
+            if len(result.jobs) >= 60:
+                return result
+    return result
+
+
+def scrape_jobicy(client: PoliteClient, portal: dict[str, Any], queries: list[str]) -> PortalResult:
+    result = PortalResult(portal["id"], portal["name"], "jobicy_api")
+    templates = portal.get("search_urls") or [
+        "https://jobicy.com/api/v2/remote-jobs?count=50&tag={query}"
+    ]
+    seen: set[str] = set()
+    for query in queries[:2]:
+        tag = query.strip().split()[0] if query.strip() else "dev"
+        url = fill_url(templates[0], tag)
+        result.fetched_urls.append(url)
+        status, data = client.get_json(url)
+        if status != 200 or not isinstance(data, dict):
+            result.error = f"Jobicy HTTP {status}"
+            continue
+        for row in data.get("jobs") or []:
+            if not isinstance(row, dict):
+                continue
+            title = str(row.get("jobTitle") or row.get("title") or "")
+            raw_url = str(row.get("url") or row.get("id") or "")
+            if not title or not raw_url:
+                continue
+            href = raw_url if raw_url.startswith("http") else f"https://jobicy.com/jobs/{raw_url}"
+            if href in seen:
+                continue
+            desc = re.sub(
+                r"<[^>]+>",
+                " ",
+                str(row.get("jobDescription") or row.get("description") or ""),
+            )
+            blob = f"{title} {row.get('jobGeo') or ''} {desc[:400]}"
+            if not _query_match(title, blob, queries):
+                continue
+            seen.add(href)
+            result.jobs.append(
+                Job(
+                    title=title[:180],
+                    company=str(row.get("companyName") or row.get("company") or "unspecified")[:120],
+                    url=href,
+                    portal=portal["id"],
+                    location=str(row.get("jobGeo") or row.get("location") or "Remote"),
+                    summary=desc[:400],
+                    source_method="jobicy_api",
+                    query=query,
+                    posted_at=str(row.get("pubDate") or row.get("publishedDate") or ""),
+                )
+            )
+    return result
+
+
+def scrape_himalayas(client: PoliteClient, portal: dict[str, Any], queries: list[str]) -> PortalResult:
+    result = PortalResult(portal["id"], portal["name"], "himalayas_api")
+    templates = portal.get("search_urls") or [
+        "https://himalayas.app/jobs/api?limit=40&q={query_plus}"
+    ]
+    seen: set[str] = set()
+    for query in queries[:2]:
+        url = fill_url(templates[0], query)
+        result.fetched_urls.append(url)
+        status, data = client.get_json(url)
+        if status != 200:
+            result.error = f"Himalayas HTTP {status}"
+            continue
+        rows: list[Any]
+        if isinstance(data, list):
+            rows = data
+        elif isinstance(data, dict):
+            rows = list(data.get("jobs") or [])
+        else:
+            rows = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            title = str(row.get("title") or row.get("name") or "")
+            href = str(row.get("applicationLink") or row.get("url") or "")
+            if not href and row.get("slug"):
+                href = f"https://himalayas.app/jobs/{row['slug']}"
+            if href and not href.startswith("http") and row.get("slug"):
+                href = f"https://himalayas.app/jobs/{row['slug']}"
+            if not title or not href.startswith("http") or href in seen:
+                continue
+            company = row.get("companyName")
+            if not company and isinstance(row.get("company"), dict):
+                company = (row.get("company") or {}).get("name")
+            desc = re.sub(r"<[^>]+>", " ", str(row.get("description") or row.get("excerpt") or ""))
+            blob = f"{title} {row.get('location') or ''} {desc[:400]}"
+            if not _query_match(title, blob, queries):
+                continue
+            seen.add(href)
+            pub = row.get("pubDate") or row.get("published_at") or ""
+            result.jobs.append(
+                Job(
+                    title=title[:180],
+                    company=str(company or "unspecified")[:120],
+                    url=href,
+                    portal=portal["id"],
+                    location=str(row.get("location") or row.get("jobLocation") or "Remote"),
+                    summary=desc[:400],
+                    source_method="himalayas_api",
+                    query=query,
+                    posted_at=str(pub),
+                )
+            )
+    return result
+
+
+def scrape_themuse(
+    client: PoliteClient,
+    portal: dict[str, Any],
+    queries: list[str],
+    *,
+    locations: list[str],
+) -> PortalResult:
+    """The Muse public jobs API — reputable curated tech/professional roles."""
+    result = PortalResult(portal["id"], portal["name"], "themuse_api")
+    seen: set[str] = set()
+    loc = (locations[0] if locations else "").replace("(target)", "").strip()
+    for query in queries[:2]:
+        params = f"page=1&descending=true"
+        # The Muse filters by location; keyword matching done client-side
+        url = f"https://www.themuse.com/api/public/jobs?{params}"
+        if loc:
+            url += f"&location={quote_plus(loc)}"
+        result.fetched_urls.append(url)
+        status, data = client.get_json(url)
+        if status != 200 or not isinstance(data, dict):
+            result.error = f"The Muse HTTP {status}"
+            continue
+        for row in data.get("results") or []:
+            if not isinstance(row, dict):
+                continue
+            title = str(row.get("name") or "")
+            refs = row.get("refs") or {}
+            href = str((refs.get("landing_page") if isinstance(refs, dict) else "") or "")
+            if not title or not href or href in seen:
+                continue
+            company_obj = row.get("company") if isinstance(row.get("company"), dict) else {}
+            company = str((company_obj or {}).get("name") or "unspecified")
+            locs = row.get("locations") if isinstance(row.get("locations"), list) else []
+            loc_str = ", ".join(
+                str(x.get("name") or "") for x in locs if isinstance(x, dict) and x.get("name")
+            )
+            contents = re.sub(r"<[^>]+>", " ", str(row.get("contents") or ""))
+            blob = f"{title} {company} {loc_str} {contents[:500]}"
+            if not _query_match(title, blob, [query, *queries]):
+                continue
+            seen.add(href)
+            pub = str(row.get("publication_date") or "")[:10]
+            result.jobs.append(
+                Job(
+                    title=title[:180],
+                    company=company[:120],
+                    url=href,
+                    portal=portal["id"],
+                    location=loc_str or loc or "Remote",
+                    summary=contents[:400],
+                    source_method="themuse_api",
+                    query=query,
+                    posted_at=pub,
+                )
+            )
+            if len(result.jobs) >= 50:
+                return result
+    return result
+
+
+def scrape_usajobs(
+    client: PoliteClient,
+    portal: dict[str, Any],
+    queries: list[str],
+    *,
+    locations: list[str],
+    profile: dict[str, Any],
+) -> PortalResult:
+    """USAJobs.gov official API — US federal roles (requires Authorization-Key for best results)."""
+    import os
+
+    result = PortalResult(portal["id"], portal["name"], "usajobs_api")
+    region = str((profile.get("geo") or {}).get("region") or "").lower()
+    country = str((profile.get("geo") or {}).get("country_indeed") or "").lower()
+    if region not in {"usa", "washington", "remote", "worldwide", ""} and country not in {
+        "usa",
+        "us",
+        "",
+    }:
+        result.skipped = f"USAJobs skipped for region={region or country or 'n/a'}"
+        return result
+
+    loc = (locations[0] if locations else "").replace("(target)", "").strip()
+    headers = {
+        "Host": "data.usajobs.gov",
+        "User-Agent": os.environ.get("USAJOBS_USER_AGENT") or "jobhunter@alfredterminal.xyz",
+    }
+    if os.environ.get("USAJOBS_API_KEY"):
+        headers["Authorization-Key"] = os.environ["USAJOBS_API_KEY"]
+
+    seen: set[str] = set()
+    for query in queries[:2]:
+        from urllib.parse import urlencode
+
+        params: dict[str, str] = {
+            "Keyword": query,
+            "DatePosted": "14",
+            "ResultsPerPage": "40",
+        }
+        if loc:
+            params["LocationName"] = loc
+        url = f"https://data.usajobs.gov/api/search?{urlencode(params)}"
+        result.fetched_urls.append(url)
+        resp = client.get(url, headers=headers)
+        status = resp.status_code
+        try:
+            data = resp.json()
+        except Exception:  # noqa: BLE001
+            data = None
+        if status != 200 or not isinstance(data, dict):
+            result.error = f"USAJobs HTTP {status}"
+            continue
+        items = ((data.get("SearchResult") or {}).get("SearchResultItems")) or []
+        for row in items:
+            if not isinstance(row, dict):
+                continue
+            matched = row.get("MatchedObjectDescriptor") or {}
+            if not isinstance(matched, dict):
+                continue
+            title = str(matched.get("PositionTitle") or "")
+            apply_list = matched.get("ApplyURI") if isinstance(matched.get("ApplyURI"), list) else []
+            apply = str((apply_list[0] if apply_list else "") or matched.get("PositionURI") or "")
+            if not title or not apply or apply in seen:
+                continue
+            seen.add(apply)
+            org = str(matched.get("OrganizationName") or "USAJobs")
+            locs = matched.get("PositionLocation") if isinstance(matched.get("PositionLocation"), list) else []
+            loc_str = ", ".join(
+                str(x.get("LocationName") or "")
+                for x in locs
+                if isinstance(x, dict) and x.get("LocationName")
+            )
+            user_area = matched.get("UserArea") if isinstance(matched.get("UserArea"), dict) else {}
+            details = user_area.get("Details") if isinstance(user_area.get("Details"), dict) else {}
+            summary_raw = details.get("JobSummary") or matched.get("QualificationSummary") or ""
+            pub = str(matched.get("PublicationStartDate") or "")[:10]
+            result.jobs.append(
+                Job(
+                    title=title[:180],
+                    company=org[:120],
+                    url=apply,
+                    portal=portal["id"],
+                    location=loc_str or loc or "United States",
+                    summary=re.sub(r"<[^>]+>", " ", str(summary_raw))[:400],
+                    source_method="usajobs_api",
+                    query=query,
+                    posted_at=pub,
+                )
+            )
+    return result
+
+
 def scrape_rss(client: PoliteClient, portal: dict[str, Any], queries: list[str]) -> PortalResult:
     result = PortalResult(portal["id"], portal["name"], "rss")
     needles = [q.lower() for q in queries]

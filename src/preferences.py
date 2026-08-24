@@ -88,7 +88,9 @@ def preferences_to_overrides(prefs: dict[str, Any], *, region_name: str | None =
         "hunt": {
             "use_jobspy": bool(prefs.get("use_jobspy", True)),
             "jobspy_sites": list(
-                prefs.get("jobspy_sites") or region.get("jobspy_sites") or ["indeed", "linkedin", "google"]
+                prefs.get("jobspy_sites")
+                or region.get("jobspy_sites")
+                or ["indeed", "linkedin", "google", "glassdoor"]
             ),
         },
     }

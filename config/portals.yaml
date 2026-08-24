@@ -366,6 +366,7 @@ portals:
   - id: weworkremotely
     name: We Work Remotely
     host: weworkremotely.com
+    regions: [worldwide, remote, dubai, usa, india]
     method: rss
     search_urls:
       - "https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss"
@@ -634,12 +635,11 @@ portals:
   - id: himalayas
     name: Himalayas (Remote)
     host: himalayas.app
-    method: html
-    note: Remote-first; eligibility keeps network/NOC matches.
+    regions: [worldwide, remote, dubai, usa, india]
+    method: himalayas_api
+    note: Remote-first public jobs API.
     search_urls:
-      - "https://himalayas.app/jobs?q={query_plus}"
-    job_path_hints: ["/jobs/", "/job/"]
-    fallback: site_search
+      - "https://himalayas.app/jobs/api?limit=40&q={query_plus}"
 
   - id: workingnomads
     name: Working Nomads
@@ -653,6 +653,7 @@ portals:
   - id: nodesk
     name: NoDesk
     host: nodesk.co
+    regions: [worldwide, remote, dubai, usa, india]
     method: rss
     search_urls:
       - "https://nodesk.co/remote-jobs/feed.xml"
@@ -666,9 +667,99 @@ portals:
   - id: weworkremotely_programming
     name: We Work Remotely (Programming)
     host: weworkremotely.com
+    regions: [worldwide, remote, dubai, usa, india]
     method: rss
     search_urls:
       - "https://weworkremotely.com/categories/remote-programming-jobs.rss"
+
+  - id: arbeitnow
+    name: Arbeitnow
+    host: arbeitnow.com
+    regions: [worldwide, remote, dubai, usa, india, warsaw, canada]
+    method: arbeitnow_api
+    note: Public European/remote job board API.
+    search_urls:
+      - "https://www.arbeitnow.com/api/job-board-api?search={query_plus}"
+
+  - id: jobicy
+    name: Jobicy
+    host: jobicy.com
+    regions: [worldwide, remote, dubai, usa, india]
+    method: jobicy_api
+    note: Public remote jobs API.
+    search_urls:
+      - "https://jobicy.com/api/v2/remote-jobs?count=50&tag={query}"
+
+  - id: themuse
+    name: The Muse
+    host: themuse.com
+    regions: [worldwide, remote, dubai, usa, india, washington]
+    method: themuse_api
+    note: Curated professional / tech roles (public API).
+    search_urls:
+      - "https://www.themuse.com/api/public/jobs"
+
+  - id: usajobs
+    name: USAJobs (official)
+    host: usajobs.gov
+    regions: [usa, washington, worldwide, remote]
+    method: usajobs_api
+    note: Official US federal jobs API. Set USAJOBS_API_KEY for best results.
+    search_urls:
+      - "https://data.usajobs.gov/api/search"
+
+  - id: dice
+    name: Dice (Tech)
+    host: dice.com
+    regions: [usa, washington, worldwide]
+    method: html
+    note: US tech specialist board.
+    search_urls:
+      - "https://www.dice.com/jobs?q={query_plus}&location={location_plus}&filters.postedDate=THREE"
+    job_path_hints: ["/job-detail/", "/jobs/"]
+    fallback: site_search
+
+  - id: reed_uk
+    name: Reed.co.uk
+    host: reed.co.uk
+    regions: [worldwide]
+    method: html
+    note: Major UK board; useful for remote-friendly UK/EU spillover.
+    search_urls:
+      - "https://www.reed.co.uk/jobs/{query_dash}-jobs"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: totaljobs
+    name: Totaljobs
+    host: totaljobs.com
+    regions: [worldwide]
+    method: html
+    search_urls:
+      - "https://www.totaljobs.com/jobs/{query_dash}"
+    job_path_hints: ["/job/", "/jobs/"]
+    fallback: site_search
+
+  - id: cwjobs
+    name: CWJobs
+    host: cwjobs.co.uk
+    regions: [worldwide]
+    method: html
+    note: UK IT specialist board.
+    search_urls:
+      - "https://www.cwjobs.co.uk/jobs/{query_dash}"
+    job_path_hints: ["/job/", "/jobs/"]
+    fallback: site_search
+
+  - id: seek_gcc
+    name: SEEK (international / GCC-facing)
+    host: seek.com
+    regions: [dubai, worldwide, india]
+    method: html
+    search_urls:
+      - "https://www.seek.com.au/{query_dash}-jobs"
+    job_path_hints: ["/job/", "/jobs/"]
+    fallback: site_search
 
   - id: jobbank_uae
     name: JobBank UAE aggregators
@@ -977,6 +1068,7 @@ portals:
   - id: workatastartup
     name: Work at a Startup (Y Combinator)
     host: workatastartup.com
+    regions: [worldwide, remote, usa, dubai, india]
     method: html
     note: Startup roles; eligibility filter keeps network/NOC-relevant.
     search_urls:
@@ -987,6 +1079,7 @@ portals:
   - id: otta
     name: Otta
     host: otta.com
+    regions: [worldwide, remote, usa]
     method: site_search
     js_heavy: true
     note: Curated tech roles; keep remote/UAE-friendly hits.
@@ -996,6 +1089,7 @@ portals:
   - id: dynamitejobs
     name: Dynamite Jobs
     host: dynamitejobs.com
+    regions: [worldwide, remote, dubai, usa, india]
     method: html
     search_urls:
       - "https://dynamitejobs.com/remote-jobs?search={query_plus}"
@@ -1005,6 +1099,7 @@ portals:
   - id: justremote
     name: JustRemote
     host: justremote.co
+    regions: [worldwide, remote, dubai, usa, india]
     method: html
     search_urls:
       - "https://justremote.co/remote-jobs?search={query_plus}"

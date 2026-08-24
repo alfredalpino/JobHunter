@@ -8,6 +8,7 @@ jobspy_sites:
 - indeed
 - linkedin
 - google
+- glassdoor
 - bayt
 allow_signals:
 - uae

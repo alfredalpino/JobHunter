@@ -52,7 +52,7 @@ function parseRegionYaml(id: string, raw: string): RegionPack | null {
 }
 
 async function loadRegionsFromYaml(): Promise<RegionPack[] | null> {
-  const dir = path.join(process.cwd(), "..", "config", "regions");
+  const dir = path.join(process.cwd(), "config", "regions");
   try {
     const files = await fs.readdir(dir);
     const yamlFiles = files.filter((f) => f.endsWith(".yaml") || f.endsWith(".yml"));

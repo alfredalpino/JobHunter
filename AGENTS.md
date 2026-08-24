@@ -1,41 +1,32 @@
-# JobHunter — agent instructions (Antigravity / Cursor / agy)
+# JobHunter — agent instructions (web primary)
 
-This folder is a **worldwide job hunt / filter tool** (resume-first, region packs, ≤14-day recency). Prefer **speed and low token use**.
+This repository’s **`main` branch is the Next.js web app** (resume-first hunt in the browser).
 
-## Token policy (strict)
+## Token policy
 
-1. **Do not call Gemini for scraping or scoring.** Run `./run.sh easy-hunt` / `./run.sh hunt` only.
-2. Profile building is **local by default**. Only use `--ai` if the user explicitly asks to polish with AI.
-3. When AI is needed: model **`gemini-3.5-flash-low`**, `--effort low`, one short turn. Never paste a full multi-page CV into a long chat — point the user at scripts.
-4. Re-reading results: open `data/exports/<id>/eligible.md` (file), don’t re-scrape.
-5. Cache: AI refinements land in `data/ai-cache/` — don’t force re-runs.
+1. Do **not** call Gemini for scraping or scoring in the web app.
+2. Optional polish only when the user opts in (`GEMINI_API_KEY`).
+3. Prefer reading `/status` and `/api/status` for uptime — don’t re-scrape to “check health”.
 
-## Everyday commands
+## Everyday commands (main)
 
 ```bash
+npm install
+npm run dev -- -p 3000 -H 127.0.0.1
+npm test
+```
+
+## CLI / local Python
+
+Checkout **`cli-local`** for `./run.sh`, region packs workflows, and Python deep hunt:
+
+```bash
+git checkout cli-local
 ./setup-once.sh
-./run.sh ui
-./run.sh easy --resume "uploads/cv.pdf" --name "Name" --region dubai   # no AI
-./run.sh easy-hunt --id <id>                                          # no AI
-./run.sh regions
-```
-
-Optional polish (costs a little credit, once):
-
-```bash
-./run.sh easy --resume "uploads/cv.pdf" --name "Name" --region india --ai
-```
-
-Chat helper (cheap model):
-
-```bash
-agy --model gemini-3.5-flash-low --effort low --add-dir .
-# /jobhunter /jobhunter-setup /jobhunter-hunt
+./run.sh easy-hunt --id <id>
 ```
 
 ## Hard product rules
 
-- Recency max **14 days**; reject unknown dates.
-- Bottom of export: last 7 days + 8–14 days sections.
+- Recency max **14 days** by default product policy; UI date windows can widen display.
 - No auto-apply. Speak plainly.
-- Preferences: `aspirants/<id>/preferences.yaml` + `config/regions/`.

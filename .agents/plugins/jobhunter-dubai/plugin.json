@@ -1,5 +1,0 @@
-{
-  "$schema": "https://antigravity.google/schemas/v1/plugin.json",
-  "name": "jobhunter-dubai",
-  "description": "Simple Dubai job hunter: upload a CV, let Gemini read eligibility, scrape 40+ UAE portals, keep only jobs posted in the last 1–2 weeks."
-}

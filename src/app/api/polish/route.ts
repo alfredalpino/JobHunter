@@ -16,7 +16,7 @@ function squash(text: string, limit: number): string {
 }
 
 function cacheDir(): string {
-  return path.join(process.cwd(), "..", "data", "ai-cache");
+  return path.join(process.cwd(), "data", "ai-cache");
 }
 
 async function readCache(key: string): Promise<unknown | null> {

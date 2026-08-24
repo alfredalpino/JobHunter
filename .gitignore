@@ -1,11 +1,51 @@
-.venv/
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+/build
+
+# misc
+.DS_Store
+*.pem
+*.log
+.vscode/
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+.pnpm-debug.log*
+
+# env
 .env
+.env*.local
+.env.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# local runtime / personal data (CLI branch still has full layout)
+.venv/
 __pycache__/
 *.pyc
 .pytest_cache/
 uploads/*
 !uploads/.gitkeep
-# Personal aspirant data (keep only the example template public)
 aspirants/*
 !aspirants/example/
 !aspirants/example/**
@@ -14,5 +54,3 @@ data/raw/
 data/exports/
 data/ai-cache/
 data/cache/
-.DS_Store
-*.log

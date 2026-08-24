@@ -1,0 +1,29 @@
+HOW TO USE JOBHUNTER (no tech skills needed)
+============================================
+
+STEP A — One-time setup
+  1. Open the JobHunter folder
+  2. Double-click: setup-once.sh
+  3. Optional: install-agy-plugin.sh  (only if you want Gemini chat help)
+
+STEP B — Find jobs (uses NO Antigravity tokens)
+  Double-click:  Open JobHunter.command
+  Or Terminal:   ./run.sh
+
+  Then:
+    1) Upload my CV
+    2) Find matching jobs   ← leave "Gemini polish" UNCHECKED
+    3) See my results
+
+STEP C — Optional AI (small credit, rare)
+  Only if the local profile looks wrong:
+    ./run.sh easy --resume your.pdf --name "You" --ai
+
+  Chat help (cheap Flash model):
+    agy --model gemini-3.5-flash-low --effort low --add-dir "$(pwd)"
+    then type: /jobhunter
+
+IMPORTANT
+  • Scraping never uses Gemini.
+  • We only show jobs from the LAST 7 DAYS or 8–14 DAYS.
+  • Read HOW_IT_WORKS.md if you want the full picture.

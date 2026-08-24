@@ -1,0 +1,1062 @@
+# Portals: "40 Job Portals in UAE.pdf" + Bayt/GulfTalent/NaukriGulf + UAE employers + GCC/remote boards.
+# Placeholders: {query} {query_plus} {query_dash}
+# Active scrapers: ~110+ (social groups skipped).
+
+defaults:
+  delay_seconds: 1.8
+  timeout_seconds: 25
+  max_jobs_per_portal: 40
+  user_agent: "JobHunter/1.0 (personal UAE job search; aspirant tool)"
+
+queries:
+  - network engineer
+  - NOC engineer
+  - junior network engineer
+  - network support
+
+locations:
+  - Dubai
+  - UAE
+
+portals:
+  - id: zerotaxjobs
+    name: Zero Tax Jobs
+    host: zerotaxjobs.com
+    method: html
+    search_urls:
+      - "https://zerotaxjobs.com/?s={query_plus}"
+    job_path_hints: ["/job", "/jobs/", "/careers/"]
+    fallback: site_search
+
+  - id: edarabia
+    name: Edarabia Jobs
+    host: edarabia.com
+    method: html
+    search_urls:
+      - "https://www.edarabia.com/jobs/?s={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: catererglobal
+    name: CatererGlobal
+    host: catererglobal.com
+    method: html
+    note: Hospitality-first; eligibility filter will drop most roles.
+    search_urls:
+      - "https://www.catererglobal.com/searchjobs/?Keywords={query_plus}&Location=Dubai"
+    job_path_hints: ["/job/", "/jobs/"]
+    fallback: site_search
+
+  - id: khaleejtimes
+    name: Khaleej Times Classifieds
+    host: classifieds.khaleejtimes.com
+    method: html
+    search_urls:
+      - "https://classifieds.khaleejtimes.com/s/jobs?q={query_plus}"
+    job_path_hints: ["/ad/", "/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: remoteok
+    name: Remote OK (Asia)
+    host: remoteok.com
+    method: remoteok_api
+    search_urls:
+      - "https://remoteok.com/api"
+
+  - id: laimoon
+    name: Laimoon
+    host: laimoon.com
+    method: html
+    search_urls:
+      - "https://jobs.laimoon.com/search?q={query_plus}&l=UAE"
+      - "https://laimoon.com/uae/jobs?q={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: indeed_ae
+    name: Indeed UAE
+    host: ae.indeed.com
+    method: html
+    js_heavy: true
+    search_urls:
+      - "https://ae.indeed.com/jobs?q={query_plus}&l=Dubai"
+    job_path_hints: ["/viewjob", "/rc/clk", "jk="]
+    fallback: site_search
+
+  - id: jobaaj
+    name: Jobaaj
+    host: jobaaj.com
+    method: html
+    search_urls:
+      - "https://www.jobaaj.com/jobs/{query_dash}-jobs-in-dubai"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: talentmate
+    name: TalentMate
+    host: talentmate.com
+    method: html
+    search_urls:
+      - "https://www.talentmate.com/jobs?q={query_plus}&location=United%20Arab%20Emirates"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: coconutjobs
+    name: Coconut Jobs
+    host: coconutjobs.com
+    method: html
+    search_urls:
+      - "https://coconutjobs.com/?s={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: glassdoor
+    name: Glassdoor
+    host: glassdoor.com
+    method: site_search
+    js_heavy: true
+    search_urls:
+      - "https://www.glassdoor.com/Job/dubai-{query_dash}-jobs-SRCH_IL.0,5_IC2204498_KO6.htm"
+
+  - id: jobrapido
+    name: JobRapido
+    host: jobrapido.com
+    method: html
+    search_urls:
+      - "https://ae.jobrapido.com/?q={query_plus}&l=Dubai"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: learn4good
+    name: Learn4Good Jobs
+    host: learn4good.com
+    method: html
+    search_urls:
+      - "https://www.learn4good.com/jobs/search/q/{query_dash}/l/dubai/"
+    job_path_hints: ["/jobs/"]
+    fallback: site_search
+
+  - id: bebee
+    name: beBee
+    host: bebee.com
+    method: html
+    search_urls:
+      - "https://ae.bebee.com/jobs?q={query_plus}&l=Dubai"
+    job_path_hints: ["/job", "/offer"]
+    fallback: site_search
+
+  - id: talentbridge
+    name: Talent Bridge Consulting
+    host: talentbridgeconsulting.com
+    method: html
+    search_urls:
+      - "https://talentbridgeconsulting.com/?s={query_plus}"
+    job_path_hints: ["/job", "/jobs/", "/career"]
+    fallback: site_search
+
+  - id: whatjobs
+    name: WhatJobs
+    host: whatjobs.com
+    method: html
+    search_urls:
+      - "https://whatjobs.com/jobs/{query_dash}-in-dubai"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: workable
+    name: Workable Jobs
+    host: jobs.workable.com
+    method: html
+    search_urls:
+      - "https://jobs.workable.com/search?query={query_plus}&location=United%20Arab%20Emirates"
+    job_path_hints: ["/view/", "/j/"]
+    fallback: site_search
+
+  - id: gogethires
+    name: GoGetHires
+    host: gogethires.com
+    method: html
+    search_urls:
+      - "https://gogethires.com/jobs?q={query_plus}&location=UAE"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: hirehabibi
+    name: HireHabibi
+    host: hirehabibi.com
+    method: html
+    search_urls:
+      - "https://hirehabibi.com/jobs?q={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: jooble
+    name: Jooble
+    host: jooble.org
+    method: html
+    search_urls:
+      - "https://ae.jooble.org/SearchResult?ukw={query_plus}&rgns=Dubai"
+    job_path_hints: ["/jdp/", "/job"]
+    fallback: site_search
+
+  - id: jobilize
+    name: Jobilize
+    host: jobilize.com
+    method: html
+    search_urls:
+      - "https://www.jobilize.com/search?q={query_plus}+dubai"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: expertini
+    name: Expertini
+    host: expertini.com
+    method: html
+    search_urls:
+      - "https://ae.expertini.com/jobs/search/?q={query_plus}&l=Dubai"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: liveuaejobs
+    name: Live UAE Jobs
+    host: liveuaejobs.com
+    method: html
+    search_urls:
+      - "https://www.liveuaejobs.com/search?q={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: grabjobs
+    name: GrabJobs
+    host: grabjobs.co
+    method: html
+    search_urls:
+      - "https://grabjobs.co/uae/jobs?q={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: wuzzuf
+    name: Wuzzuf
+    host: wuzzuf.net
+    method: html
+    note: Egypt-first board; keep UAE/remote hits only.
+    search_urls:
+      - "https://wuzzuf.net/search/jobs/?q={query_plus}&filters[country][0]=United%20Arab%20Emirates"
+    job_path_hints: ["/jobs/p/", "/jobs/"]
+    fallback: site_search
+
+  - id: getgulfjob
+    name: GetGulfJob
+    host: getgulfjob.com
+    method: html
+    search_urls:
+      - "https://getgulfjob.com/?s={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: litjobs
+    name: LitJobs
+    host: litjobs.com
+    method: html
+    search_urls:
+      - "https://litjobs.com/jobs?q={query_plus}&l=Dubai"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: sha5rjobs
+    name: Sha5r Jobs
+    host: sha5rjobs.com
+    method: html
+    search_urls:
+      - "https://sha5rjobs.com/?s={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: gulfjobs
+    name: GulfJobs
+    host: gulfjobs.com
+    method: html
+    search_urls:
+      - "https://www.gulfjobs.com/search?q={query_plus}&l=Dubai"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: wellfound
+    name: Wellfound
+    host: wellfound.com
+    method: site_search
+    js_heavy: true
+    search_urls:
+      - "https://wellfound.com/jobs?q={query_plus}&l=Dubai"
+
+  - id: yallacareer
+    name: YallaCareer
+    host: yallacareer.com
+    method: html
+    search_urls:
+      - "https://yallacareer.com/search?q={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: drjobs
+    name: DrJobs UAE
+    host: drjobs.ae
+    method: html
+    search_urls:
+      - "https://drjobs.ae/jobs?q={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: jobtorob
+    name: JobTorob
+    host: jobtorob.com
+    method: html
+    search_urls:
+      - "https://jobtorob.com/search?q={query_plus}+dubai"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: foundit
+    name: Foundit UAE
+    host: foundit.ae
+    method: html
+    search_urls:
+      - "https://www.foundit.ae/srp/results?query={query_plus}&locations=Dubai"
+    job_path_hints: ["/job", "/srp/"]
+    fallback: site_search
+
+  - id: dubaijobs
+    name: DubaiJobs.net
+    host: dubaijobs.net
+    method: html
+    search_urls:
+      - "https://www.dubaijobs.net/jobs/?q={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: uaetopjobs
+    name: UAE Top Jobs
+    host: uaetopjobs.com
+    method: html
+    search_urls:
+      - "https://uaetopjobs.com/?s={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: jobsforher
+    name: JobsForHer Middle East
+    host: middleeast.jobsforher.com
+    method: html
+    note: Women-returner board; scrape IT hits only.
+    search_urls:
+      - "https://middleeast.jobsforher.com/jobs?q={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: remotive
+    name: Remotive
+    host: remotive.com
+    method: remotive_api
+    search_urls:
+      - "https://remotive.com/api/remote-jobs?search={query_plus}&limit=50"
+
+  - id: weworkremotely
+    name: We Work Remotely
+    host: weworkremotely.com
+    method: rss
+    search_urls:
+      - "https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss"
+      - "https://weworkremotely.com/remote-jobs.rss"
+
+  - id: skillbee
+    name: Skillbee
+    host: skillbee.com
+    method: html
+    note: Trades-heavy; eligibility filter will drop most roles.
+    search_urls:
+      - "https://skillbee.com/jobs?q={query_plus}&l=UAE"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  # --- Expanded authentic UAE / GCC / regional boards (added 2026-08-24) ---
+
+  - id: bayt
+    name: Bayt.com
+    host: bayt.com
+    method: html
+    note: Leading Middle East job board.
+    search_urls:
+      - "https://www.bayt.com/en/uae/jobs/{query_dash}-jobs/"
+      - "https://www.bayt.com/en/international/jobs/{query_dash}-jobs-in-dubai/"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: gulftalent
+    name: GulfTalent
+    host: gulftalent.com
+    method: html
+    note: Professional / experienced Gulf roles.
+    search_urls:
+      - "https://www.gulftalent.com/jobs?pos_ref={query_plus}&l=dubai"
+      - "https://www.gulftalent.com/uae/jobs/{query_dash}"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: naukrigulf
+    name: Naukrigulf
+    host: naukrigulf.com
+    method: html
+    note: Major Gulf job portal (Naukri Gulf).
+    search_urls:
+      - "https://www.naukrigulf.com/{query_dash}-jobs-in-dubai"
+      - "https://www.naukrigulf.com/{query_dash}-jobs-in-uae"
+    job_path_hints: ["/job-listings-", "/jobs"]
+    fallback: site_search
+
+  - id: linkedin_jobs
+    name: LinkedIn Jobs (UAE)
+    host: linkedin.com
+    method: site_search
+    js_heavy: true
+    note: Public job search only; no login/session scraping.
+    search_urls:
+      - "https://www.linkedin.com/jobs/search/?keywords={query_plus}&location=United%20Arab%20Emirates"
+
+  - id: dubizzle_jobs
+    name: Dubizzle Jobs
+    host: dubizzle.com
+    method: html
+    search_urls:
+      - "https://dubai.dubizzle.com/jobs/search/?keywords={query_plus}"
+      - "https://uae.dubizzle.com/jobs/?q={query_plus}"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: akhtaboot
+    name: Akhtaboot
+    host: akhtaboot.com
+    method: html
+    note: MENA professional jobs.
+    search_urls:
+      - "https://www.akhtaboot.com/en/uae/jobs?q={query_plus}"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: monster_gulf
+    name: Monster Gulf
+    host: monster.ae
+    method: html
+    search_urls:
+      - "https://www.monster.ae/jobs/search/?q={query_plus}&where=Dubai"
+    job_path_hints: ["/job-job-", "/jobs/"]
+    fallback: site_search
+
+  - id: careerjet_ae
+    name: Careerjet UAE
+    host: careerjet.ae
+    method: html
+    search_urls:
+      - "https://www.careerjet.ae/{query_dash}-jobs-in-dubai"
+    job_path_hints: ["/job/", "/jobs/"]
+    fallback: site_search
+
+  - id: adzuna_ae
+    name: Adzuna UAE
+    host: adzuna.ae
+    method: html
+    search_urls:
+      - "https://www.adzuna.ae/search?q={query_plus}&loc=Dubai"
+    job_path_hints: ["/details/", "/jobs/", "/ad/"]
+    fallback: site_search
+
+  - id: tanqeeb
+    name: Tanqeeb
+    host: tanqeeb.com
+    method: html
+    note: Arabic/English Gulf listings.
+    search_urls:
+      - "https://www.tanqeeb.com/en/jobs?q={query_plus}&l=Dubai"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: qatarliving_jobs
+    name: Qatar Living Jobs
+    host: qatarliving.com
+    method: html
+    note: Qatar board; keep GCC-relevant hits.
+    search_urls:
+      - "https://www.qatarliving.com/jobs?query={query_plus}"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: hays_ae
+    name: Hays UAE Jobs
+    host: hays.ae
+    method: html
+    note: Employer-paid recruiter board.
+    search_urls:
+      - "https://www.hays.ae/jobs?q={query_plus}&location=Dubai"
+    job_path_hints: ["/job/", "/jobs/"]
+    fallback: site_search
+
+  - id: michael_page_ae
+    name: Michael Page UAE
+    host: michaelpage.ae
+    method: html
+    search_urls:
+      - "https://www.michaelpage.ae/jobs/{query_dash}/in/dubai"
+      - "https://www.michaelpage.ae/jobs?keywords={query_plus}&location=Dubai"
+    job_path_hints: ["/job-detail/", "/jobs/"]
+    fallback: site_search
+
+  - id: robert_walters_me
+    name: Robert Walters Middle East
+    host: robertwalters.ae
+    method: html
+    search_urls:
+      - "https://www.robertwalters.ae/jobs.html#/?q={query_plus}&l=Dubai"
+    job_path_hints: ["/job/", "/jobs/"]
+    fallback: site_search
+
+  - id: adecco_ae
+    name: Adecco UAE
+    host: adecco.com
+    method: html
+    search_urls:
+      - "https://www.adecco.com/en-ae/jobs?keyword={query_plus}&location=Dubai"
+    job_path_hints: ["/job/", "/jobs/"]
+    fallback: site_search
+
+  - id: randstad_me
+    name: Randstad (Gulf / India→Gulf)
+    host: randstad.ae
+    method: html
+    search_urls:
+      - "https://www.randstad.ae/jobs/?q={query_plus}"
+      - "https://www.randstad.in/jobs/?q={query_plus}+dubai"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: halian
+    name: Halian Jobs
+    host: halian.com
+    method: html
+    note: Technology specialist recruiter.
+    search_urls:
+      - "https://www.halian.com/jobs?query={query_plus}&location=UAE"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: charterhouse_me
+    name: Charterhouse MENA
+    host: charterhouseme.ae
+    method: html
+    search_urls:
+      - "https://www.charterhouseme.ae/candidates/?s={query_plus}"
+    job_path_hints: ["/job", "/jobs/", "/candidates/"]
+    fallback: site_search
+
+  - id: cooper_fitch
+    name: Cooper Fitch
+    host: cooperfitch.ae
+    method: html
+    search_urls:
+      - "https://cooperfitch.ae/jobs/?s={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: robert_half_ae
+    name: Robert Half UAE
+    host: roberthalf.com
+    method: html
+    search_urls:
+      - "https://www.roberthalf.com/ae/en/jobs?q={query_plus}&l=Dubai"
+    job_path_hints: ["/job/", "/jobs/"]
+    fallback: site_search
+
+  - id: pagepersonnel_ae
+    name: Page Personnel UAE
+    host: pagepersonnel.ae
+    method: html
+    search_urls:
+      - "https://www.pagepersonnel.ae/jobs/{query_dash}/in/dubai-united-arab-emirates"
+    job_path_hints: ["/job-detail/", "/jobs/"]
+    fallback: site_search
+
+  - id: sa_indeed
+    name: Indeed Saudi Arabia
+    host: sa.indeed.com
+    method: html
+    js_heavy: true
+    note: GCC spillover for network/NOC roles.
+    search_urls:
+      - "https://sa.indeed.com/jobs?q={query_plus}&l=Riyadh"
+    job_path_hints: ["/viewjob", "/rc/clk", "jk="]
+    fallback: site_search
+
+  - id: careerbuilder_me
+    name: CareerBuilder (ME search)
+    host: careerbuilder.com
+    method: site_search
+    search_urls:
+      - "https://www.careerbuilder.com/jobs?keywords={query_plus}&location=Dubai%2C+UAE"
+
+  - id: talent_com
+    name: Talent.com UAE
+    host: talent.com
+    method: html
+    search_urls:
+      - "https://ae.talent.com/jobs?k={query_plus}&l=Dubai"
+    job_path_hints: ["/view/", "/jobs/"]
+    fallback: site_search
+
+  - id: jobsora
+    name: Jobsora UAE
+    host: jobsora.com
+    method: html
+    search_urls:
+      - "https://ae.jobsora.com/jobs/{query_dash}-in-dubai"
+    job_path_hints: ["/job/", "/jobs/"]
+    fallback: site_search
+
+  - id: qureos
+    name: Qureos Jobs
+    host: qureos.com
+    method: html
+    search_urls:
+      - "https://app.qureos.com/jobs/search?q={query_plus}&location=United%20Arab%20Emirates"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: himalayas
+    name: Himalayas (Remote)
+    host: himalayas.app
+    method: html
+    note: Remote-first; eligibility keeps network/NOC matches.
+    search_urls:
+      - "https://himalayas.app/jobs?q={query_plus}"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: workingnomads
+    name: Working Nomads
+    host: workingnomads.com
+    method: html
+    search_urls:
+      - "https://www.workingnomads.com/jobs?category=it&location=remote&search={query_plus}"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: nodesk
+    name: NoDesk
+    host: nodesk.co
+    method: rss
+    search_urls:
+      - "https://nodesk.co/remote-jobs/feed.xml"
+
+  - id: remotecool
+    name: Remote OK Europe/Asia alternate
+    host: remoteok.com
+    method: skip
+    note: Covered by remoteok_api above.
+
+  - id: weworkremotely_programming
+    name: We Work Remotely (Programming)
+    host: weworkremotely.com
+    method: rss
+    search_urls:
+      - "https://weworkremotely.com/categories/remote-programming-jobs.rss"
+
+  - id: jobbank_uae
+    name: JobBank UAE aggregators
+    host: jobbank.ae
+    method: html
+    search_urls:
+      - "https://www.jobbank.ae/jobs?q={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: emirates_careers
+    name: Emirates Group Careers
+    host: emirates.com
+    method: site_search
+    note: Major UAE employer careers board.
+    search_urls:
+      - "https://www.emiratesgroupcareers.com/"
+
+  - id: etihad_careers
+    name: Etihad Careers
+    host: etihad.com
+    method: site_search
+    search_urls:
+      - "https://careers.etihad.com/"
+
+  - id: dewacareers
+    name: DEWA Careers
+    host: dewa.gov.ae
+    method: site_search
+    search_urls:
+      - "https://www.dewa.gov.ae/en/about-us/careers"
+
+  - id: adnoc_careers
+    name: ADNOC Careers
+    host: adnoc.ae
+    method: site_search
+    search_urls:
+      - "https://jobs.adnoc.ae/"
+
+  - id: mihnati
+    name: Mihnati
+    host: mihnati.com
+    method: html
+    search_urls:
+      - "https://www.mihnati.com/en/jobs?q={query_plus}&l=UAE"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: wzayef
+    name: Wzayef (Saudi)
+    host: wzayef.com
+    method: html
+    note: Saudi board; GCC network roles.
+    search_urls:
+      - "https://wzayef.com/en/jobs?q={query_plus}"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: forasna
+    name: Forasna
+    host: forasna.com
+    method: html
+    note: Egypt/MENA; keep UAE/remote hits only.
+    search_urls:
+      - "https://www.forasna.com/en/jobs?q={query_plus}&l=United%20Arab%20Emirates"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  # --- Extra authentic UAE employers, GCC boards, and reputable remote boards ---
+
+  - id: eand_careers
+    name: e& (Etisalat) Careers
+    host: eand.com
+    method: site_search
+    note: Major UAE telecom employer.
+    search_urls:
+      - "https://careers.eand.com/"
+
+  - id: du_careers
+    name: du Careers
+    host: du.ae
+    method: site_search
+    search_urls:
+      - "https://www.du.ae/personal/about/careers"
+
+  - id: careem_careers
+    name: Careem Careers
+    host: careem.com
+    method: site_search
+    search_urls:
+      - "https://www.careem.com/careers/"
+
+  - id: noon_careers
+    name: noon Careers
+    host: noon.partners
+    method: site_search
+    search_urls:
+      - "https://careers.noon.com/"
+
+  - id: amazon_jobs_uae
+    name: Amazon Jobs (UAE)
+    host: amazon.jobs
+    method: html
+    search_urls:
+      - "https://www.amazon.jobs/en/search?base_query={query_plus}&loc_query=United%20Arab%20Emirates"
+    job_path_hints: ["/jobs/", "/en/jobs/"]
+    fallback: site_search
+
+  - id: dp_world_careers
+    name: DP World Careers
+    host: dpworld.com
+    method: site_search
+    search_urls:
+      - "https://www.dpworld.com/careers"
+
+  - id: emaar_careers
+    name: Emaar Careers
+    host: emaar.com
+    method: site_search
+    search_urls:
+      - "https://www.emaar.com/en/careers"
+
+  - id: maf_careers
+    name: Majid Al Futtaim Careers
+    host: majidalfuttaim.com
+    method: site_search
+    search_urls:
+      - "https://careers.majidalfuttaim.com/"
+
+  - id: chalhoub_careers
+    name: Chalhoub Group Careers
+    host: chalhoubgroup.com
+    method: site_search
+    search_urls:
+      - "https://www.chalhoubgroup.com/en/careers"
+
+  - id: landmark_careers
+    name: Landmark Group Careers
+    host: landmarkgroup.com
+    method: site_search
+    search_urls:
+      - "https://www.landmarkgroup.com/int/en/careers"
+
+  - id: mubadala_careers
+    name: Mubadala Careers
+    host: mubadala.com
+    method: site_search
+    search_urls:
+      - "https://www.mubadala.com/en/careers"
+
+  - id: dubai_careers_gov
+    name: Government of Dubai Careers
+    host: dubai.ae
+    method: site_search
+    note: Official Dubai government jobs portal.
+    search_urls:
+      - "https://www.dubai.ae/wps/portal/careers"
+
+  - id: abu_dhabi_gov_jobs
+    name: Abu Dhabi Government Jobs
+    host: careers.abudhabi.ae
+    method: site_search
+    search_urls:
+      - "https://www.careers.abudhabi.ae/"
+
+  - id: uae_government_jobs
+    name: UAE Federal Government Jobs
+    host: government.ae
+    method: site_search
+    search_urls:
+      - "https://u.ae/en/information-and-services/jobs"
+
+  - id: emiratesnbd_careers
+    name: Emirates NBD Careers
+    host: emiratesnbd.com
+    method: site_search
+    search_urls:
+      - "https://www.emiratesnbd.com/en/careers"
+
+  - id: mashreq_careers
+    name: Mashreq Careers
+    host: mashreq.com
+    method: site_search
+    search_urls:
+      - "https://www.mashreq.com/en/uae/cib/about-us/careers/"
+
+  - id: hsbc_uae_careers
+    name: HSBC UAE Careers
+    host: hsbc.ae
+    method: site_search
+    search_urls:
+      - "https://www.hsbc.ae/careers/"
+
+  - id: pwc_me_careers
+    name: PwC Middle East Careers
+    host: pwc.com
+    method: site_search
+    search_urls:
+      - "https://www.pwc.com/m1/en/careers.html"
+
+  - id: deloitte_me_careers
+    name: Deloitte Middle East Careers
+    host: deloitte.com
+    method: site_search
+    search_urls:
+      - "https://www2.deloitte.com/xe/en/careers.html"
+
+  - id: accenture_careers
+    name: Accenture Careers (UAE)
+    host: accenture.com
+    method: html
+    search_urls:
+      - "https://www.accenture.com/ae-en/careers/jobsearch?jk={query_plus}&lc=United%20Arab%20Emirates"
+    job_path_hints: ["/careers/", "/jobdetail"]
+    fallback: site_search
+
+  - id: cisco_careers
+    name: Cisco Careers
+    host: cisco.com
+    method: html
+    search_urls:
+      - "https://jobs.cisco.com/jobs/SearchJobs/?keyword={query_plus}&location=United%20Arab%20Emirates"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: microsoft_careers
+    name: Microsoft Careers
+    host: careers.microsoft.com
+    method: html
+    search_urls:
+      - "https://careers.microsoft.com/v2/global/en/search?q={query_plus}&l=United%20Arab%20Emirates"
+    job_path_hints: ["/job/", "/professionals/"]
+    fallback: site_search
+
+  - id: google_careers
+    name: Google Careers
+    host: google.com
+    method: html
+    search_urls:
+      - "https://www.google.com/about/careers/applications/jobs/results/?q={query_plus}&location=United%20Arab%20Emirates"
+    job_path_hints: ["/jobs/results/", "/jobs/"]
+    fallback: site_search
+
+  - id: ibm_careers
+    name: IBM Careers
+    host: ibm.com
+    method: html
+    search_urls:
+      - "https://www.ibm.com/careers/search?field_keyword_02=United%20Arab%20Emirates&q={query_plus}"
+    job_path_hints: ["/careers/", "/job/"]
+    fallback: site_search
+
+  - id: oracle_careers
+    name: Oracle Careers
+    host: oracle.com
+    method: html
+    search_urls:
+      - "https://careers.oracle.com/jobs/?keyword={query_plus}&location=United%20Arab%20Emirates"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: stc_careers
+    name: stc Careers (Saudi/GCC)
+    host: stc.com.sa
+    method: site_search
+    search_urls:
+      - "https://www.stc.com.sa/content/stcgroupwebsite/sa/en/careers.html"
+
+  - id: jadarat
+    name: Jadarat (Saudi)
+    host: jadarat.sa
+    method: site_search
+    note: Official Saudi employment platform; GCC-relevant IT roles.
+    search_urls:
+      - "https://www.jadarat.sa/"
+
+  - id: jobzella
+    name: Jobzella
+    host: jobzella.com
+    method: html
+    note: MENA professional network / jobs.
+    search_urls:
+      - "https://www.jobzella.com/jobs?q={query_plus}&l=United%20Arab%20Emirates"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: nadiaglobal_jobs
+    name: NADIA Global Jobs
+    host: nadiaglobal.com
+    method: html
+    note: UAE recruitment agency job board (employer-paid).
+    search_urls:
+      - "https://www.nadiaglobal.com/jobs"
+    job_path_hints: ["/job", "/jobs/"]
+    fallback: site_search
+
+  - id: tasc_jobs
+    name: TASC Outsourcing Jobs
+    host: tascoutsourcing.com
+    method: html
+    search_urls:
+      - "https://tascoutsourcing.com/en/careers"
+    job_path_hints: ["/career", "/job", "/jobs/"]
+    fallback: site_search
+
+  - id: workatastartup
+    name: Work at a Startup (Y Combinator)
+    host: workatastartup.com
+    method: html
+    note: Startup roles; eligibility filter keeps network/NOC-relevant.
+    search_urls:
+      - "https://www.workatastartup.com/jobs?query={query_plus}&remote=true"
+    job_path_hints: ["/jobs/", "/companies/"]
+    fallback: site_search
+
+  - id: otta
+    name: Otta
+    host: otta.com
+    method: site_search
+    js_heavy: true
+    note: Curated tech roles; keep remote/UAE-friendly hits.
+    search_urls:
+      - "https://otta.com/jobs"
+
+  - id: dynamitejobs
+    name: Dynamite Jobs
+    host: dynamitejobs.com
+    method: html
+    search_urls:
+      - "https://dynamitejobs.com/remote-jobs?search={query_plus}"
+    job_path_hints: ["/remote-jobs/", "/company/"]
+    fallback: site_search
+
+  - id: justremote
+    name: JustRemote
+    host: justremote.co
+    method: html
+    search_urls:
+      - "https://justremote.co/remote-jobs?search={query_plus}"
+    job_path_hints: ["/remote-jobs/", "/job/"]
+    fallback: site_search
+
+  - id: impactpool
+    name: Impactpool
+    host: impactpool.org
+    method: html
+    note: UN / NGO / international orgs (many UAE posts).
+    search_urls:
+      - "https://www.impactpool.org/search?q={query_plus}&locations=United%20Arab%20Emirates"
+    job_path_hints: ["/jobs/", "/job/"]
+    fallback: site_search
+
+  - id: unjobs
+    name: UN Jobs
+    host: unjobs.org
+    method: html
+    search_urls:
+      - "https://unjobs.org/duty_stations/united_arab_emirates"
+      - "https://unjobs.org/search/{query_dash}"
+    job_path_hints: ["/vacancies/", "/duty_stations/"]
+    fallback: site_search
+
+  - id: reliefweb_jobs
+    name: ReliefWeb Jobs
+    host: reliefweb.int
+    method: html
+    search_urls:
+      - "https://reliefweb.int/jobs?search={query_plus}%20United%20Arab%20Emirates"
+    job_path_hints: ["/job/", "/jobs/"]
+    fallback: site_search
+
+  - id: wellfound_angel
+    name: AngelList Jobs (Wellfound)
+    host: wellfound.com
+    method: skip
+    note: Duplicate of wellfound.com (angel.co/jobs redirects).
+
+  - id: telegram_groups
+    name: Telegram Groups
+    host: t.me
+    method: skip
+    note: Not a public searchable board. Requires account/group membership.
+
+  - id: whatsapp_groups
+    name: WhatsApp Groups
+    host: chat.whatsapp.com
+    method: skip
+    note: Not scrapable without joining private groups.
+
+  - id: instagram_job_group
+    name: Naveed Instagram Job Group
+    host: instagram.com
+    method: skip
+    note: Social feed, not a job board API. Check @itsnaveeddumasia manually.

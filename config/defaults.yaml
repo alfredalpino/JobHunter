@@ -1,0 +1,55 @@
+# JobHunter defaults — Dubai job aspirants
+recency:
+  # Only keep postings from the last two weeks. Reject older and unknown dates.
+  max_age_days: 14
+  reject_unknown_date: true
+  bucket_week_1_days: 7   # 0–7 days → "Posted in the last 7 days"
+  bucket_week_2_days: 14  # 8–14 days → "Posted 8–14 days ago"
+
+geo:
+  default_locations:
+    - Dubai
+    - UAE
+  allow_signals:
+    - uae
+    - dubai
+    - abu dhabi
+    - sharjah
+    - gcc
+    - gulf
+    - saudi
+    - qatar
+    - bahrain
+    - kuwait
+    - oman
+    - middle east
+    - remote
+    - worldwide
+    - visa
+    - sponsor
+  reject_signals:
+    - united states only
+    - us citizen
+    - must be us based
+    - uk only
+    - eu only
+
+scoring:
+  min_score_to_keep: 35
+  title_weight: 30
+  skills_weight: 25
+  junior_boost: 15
+  geo_boost: 20
+
+scraping:
+  delay_seconds: 1.8
+  timeout_seconds: 25
+  max_jobs_per_portal: 40
+  user_agent: "JobHunter/1.0 (Dubai job aspirant tool; personal use)"
+
+# Antigravity AI — OFF by default (hunt never uses this)
+ai:
+  enabled_by_default: false
+  model: gemini-3.5-flash-low
+  effort: low
+  note: "Opt-in only via --ai or UI checkbox; results cached in data/ai-cache/"

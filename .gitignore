@@ -1,0 +1,17 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+uploads/*
+!uploads/.gitkeep
+# Personal aspirant data (keep only the example template public)
+aspirants/*
+!aspirants/example/
+!aspirants/example/**
+aspirants/*/cv.*
+data/raw/
+data/exports/
+data/ai-cache/
+.DS_Store
+*.log

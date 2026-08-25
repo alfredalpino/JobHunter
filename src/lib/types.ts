@@ -53,6 +53,11 @@ export type Job = {
   match?: MatchReason;
   ai_note?: string;
   ai_bullets?: string[];
+  /** Shared-index metadata (optional). */
+  fingerprint?: string;
+  cluster_id?: string | null;
+  cluster_member_count?: number;
+  apply_urls?: string[];
 };
 
 export type Preferences = {
@@ -79,6 +84,8 @@ export type Profile = {
     linkedin: string;
     location: string;
     work_auth?: string;
+    github?: string;
+    portfolio?: string;
   };
   experience: {
     estimated_years: number | null;
@@ -135,6 +142,7 @@ export type HuntSourceResult = {
   ok: boolean;
   count: number;
   error?: string;
+  cached?: boolean;
 };
 
 export type AppliedRecord = {

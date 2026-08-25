@@ -16,23 +16,34 @@ const outfit = Outfit({
 
 export const metadata: Metadata = {
   title: {
-    default: "JobHunter — Fresh jobs. Your resume. Your move.",
+    default:
+      "JobHunter — We read your resume, then hunt job sites for your best matches",
     template: "%s · JobHunter",
   },
   description:
-    "Resume-first worldwide job filter by Alfredterminal. Match roles by region and skills. Keep only fresh ads (≤14 days). No auto-apply.",
-  metadataBase: new URL("https://alfredterminal.xyz"),
+    "Upload your resume once. JobHunter analyzes your profile, searches hundreds of job sources, and surfaces fresh roles that fit you. No auto-apply.",
+  metadataBase: new URL("https://alubaid.xyz"),
   openGraph: {
     title: "JobHunter",
     description:
-      "Resume-first worldwide job hunt — fresh listings only, no auto-apply.",
-    url: "https://alfredterminal.xyz",
-    siteName: "JobHunter · Alfredterminal",
-    images: [{ url: "/logo.png", width: 1024, height: 1024, alt: "JobHunter" }],
+      "Resume-driven job discovery — we hunt the web for your best matches. You apply.",
+    url: "https://alubaid.xyz",
+    siteName: "JobHunter · Alfred Alpino",
+    images: [
+      {
+        url: "/logo.png",
+        width: 512,
+        height: 512,
+        alt: "JobHunter by Alfred Alpino — resume-driven job discovery",
+      },
+    ],
   },
   icons: {
-    icon: "/logo.png",
-    apple: "/logo.png",
+    icon: [
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/logo-icon.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 
@@ -45,8 +56,16 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${fraunces.variable} ${outfit.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-ink text-sand">{children}</body>
+      {/* suppressHydrationWarning: browser extensions (e.g. LanguageTool
+          data-lt-installed) mutate <html>/<body> before React hydrates. */}
+      <body
+        className="min-h-full flex flex-col bg-ink text-sand"
+        suppressHydrationWarning
+      >
+        {children}
+      </body>
     </html>
   );
 }

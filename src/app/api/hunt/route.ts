@@ -1,16 +1,31 @@
 import { NextResponse } from "next/server";
-import { scoreAllJobs } from "@/lib/eligibility";
+import { scoreAllJobsDetailed } from "@/lib/eligibility";
 import {
   applyPreferencesToProfile,
   defaultPreferences,
   DATE_WINDOWS,
 } from "@/lib/preferences";
+import { queryJobsFromIndex } from "@/lib/index/queryJobs";
 import { fetchJobsForProfile } from "@/lib/sources";
+import { buildHuntQueries } from "@/lib/huntQueries";
 import type { Job, Preferences, Profile } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 25;
+
+const SUMMARY_ELIGIBLE_MAX = 400;
+const SUMMARY_INELIGIBLE_MAX = 200;
+
+function trimJobForResponse(job: Job): Job {
+  const keepFull =
+    job.eligible &&
+    (job.match?.band === "A" || job.match?.band === "B" || !job.match?.band);
+  const max = keepFull ? SUMMARY_ELIGIBLE_MAX : SUMMARY_INELIGIBLE_MAX;
+  const summary = (job.summary || "").slice(0, max);
+  const { ai_note: _n, ai_bullets: _b, ...rest } = job;
+  return { ...rest, summary };
+}
 
 function bucketJobs(jobs: Job[]) {
   const buckets: Record<
@@ -41,12 +56,14 @@ function bucketJobs(jobs: Job[]) {
 }
 
 /**
- * Fetch ALL listings, score/annotate every one, return the full pool.
- * Date / eligible filtering happens in the browser.
+ * Prefer shared index when DATABASE_URL has jobs; else live scrape.
+ * Date / eligible filtering still happens in the browser.
  */
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const fresh = body?.fresh === true;
+    const forceLive = body?.force_live === true;
     const profile = body?.profile as Profile | undefined;
     if (!profile || typeof profile !== "object") {
       return NextResponse.json(
@@ -77,18 +94,59 @@ export async function POST(request: Request) {
       merged.recency.reject_unknown_date = false;
     }
 
-    const { jobs, sources } = await fetchJobsForProfile(merged);
-    const scored = scoreAllJobs(jobs, merged);
-    const eligible = scored.filter((j) => j.eligible);
-    const buckets = bucketJobs(scored);
+    const huntQueries = buildHuntQueries(merged);
+
+    let rawJobs: Job[] = [];
+    let sources: Awaited<
+      ReturnType<typeof fetchJobsForProfile>
+    >["sources"] = [];
+    let huntSource: "index" | "live_scrape" = "live_scrape";
+    let indexCount = 0;
+
+    if (!forceLive && !fresh) {
+      const indexed = await queryJobsFromIndex(merged);
+      if (indexed.available && indexed.jobs.length > 0) {
+        rawJobs = indexed.jobs;
+        indexCount = indexed.indexCount;
+        huntSource = "index";
+        sources = [
+          {
+            id: "shared_index",
+            name: "Shared job index",
+            ok: true,
+            count: indexed.indexCount,
+            cached: true,
+          },
+        ];
+      }
+    }
+
+    if (huntSource === "live_scrape") {
+      const live = await fetchJobsForProfile(merged, { fresh });
+      rawJobs = live.jobs;
+      sources = live.sources;
+    }
+
+    const { jobs: scored, eligibleCount, dedupedCount } = scoreAllJobsDetailed(
+      rawJobs,
+      merged,
+    );
+    const trimmed = scored.map(trimJobForResponse);
+    const buckets = bucketJobs(trimmed);
+    const cachedSources = sources.filter((s) => s.cached).length;
 
     return NextResponse.json({
       ok: true,
       stub: false,
       auto_apply: false,
-      fetched: jobs.length,
-      scored_count: scored.length,
-      eligible_count: eligible.length,
+      source: huntSource,
+      index_count: indexCount,
+      fetched: rawJobs.length,
+      scored_count: trimmed.length,
+      eligible_count: eligibleCount,
+      deduped_count: dedupedCount,
+      cached_sources: cachedSources,
+      hunt_queries: huntQueries,
       sources,
       profile: {
         name: merged.candidate.name,
@@ -99,10 +157,13 @@ export async function POST(request: Request) {
         target_titles: merged.target_titles.slice(0, 8),
       },
       /** Full pool — filter in the UI */
-      jobs: scored,
+      jobs: trimmed,
       buckets,
       date_windows: DATE_WINDOWS,
-      note: "All scraped jobs returned. Date and fit filters apply in the app UI — no auto-apply. Web sources: Remote OK, Remotive, Arbeitnow, Jobicy, Himalayas, WWR, The Muse, NoDesk, Dynamite Jobs, USAJobs, Job Bank Canada, optional Adzuna/Jooble. Google Jobs / Indeed / LinkedIn / Glassdoor / Bayt need the Python CLI + JobSpy.",
+      note:
+        huntSource === "index"
+          ? "Scored from shared job index. Date and fit filters apply in the app — no auto-apply."
+          : "Live scrape (index empty or unavailable). Date and fit filters apply in the app — no auto-apply.",
     });
   } catch (err) {
     return NextResponse.json(
@@ -121,6 +182,7 @@ export async function GET() {
     ok: true,
     ready: true,
     method: "POST",
-    note: "POST JSON { profile, preferences? } to hunt. GET is readiness only.",
+    linkedin_scrape: false,
+    note: "POST JSON { profile, preferences? } to hunt. Prefers shared index when DATABASE_URL is populated; else live scrape of public APIs/RSS only (never LinkedIn). Response sources[] lists portal ok/fail/counts. GET is readiness only.",
   });
 }

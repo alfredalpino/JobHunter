@@ -10,8 +10,19 @@ export function levelRank(level: string): number {
   return idx >= 0 ? idx : LEVEL_ORDER.indexOf("mid");
 }
 
+/** Strip pay-tier suffixes (II, III, 2, Level 3) — not seniority signals. */
+export function stripTitleTierSuffix(title: string): string {
+  return (title || "")
+    .replace(
+      /\s+(?:I{1,3}|IV|V|VI|[2-9]|1st|2nd|3rd|4th|level\s*[2-9])\s*$/i,
+      "",
+    )
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 export function detectTitleLevel(title: string): string {
-  const titleL = (title || "").toLowerCase();
+  const titleL = stripTitleTierSuffix(title).toLowerCase();
   const signals = SENIORITY_CONFIG.signals;
   let found = -1;
   let matched = "mid";
@@ -127,10 +138,27 @@ export function rejectForSeniority(
   title: string,
   profile: Profile,
 ): string | null {
-  const jobLevel = detectTitleLevel(title);
+  return rejectForSeniorityWithGate(title, compileSeniorityGate(profile));
+}
+
+export type SeniorityGate = {
+  maxLevel: string;
+  maxRank: number;
+};
+
+/** Compile once per hunt — avoid re-scanning profile for every job title. */
+export function compileSeniorityGate(profile: Profile): SeniorityGate {
   const maxLevel = candidateMaxJobLevel(profile);
-  if (levelRank(jobLevel) > levelRank(maxLevel)) {
-    return `seniority: ${jobLevel} role above your ${maxLevel} band`;
+  return { maxLevel, maxRank: levelRank(maxLevel) };
+}
+
+export function rejectForSeniorityWithGate(
+  title: string,
+  gate: SeniorityGate,
+): string | null {
+  const jobLevel = detectTitleLevel(title);
+  if (levelRank(jobLevel) > gate.maxRank) {
+    return `seniority: ${jobLevel} role above your ${gate.maxLevel} band`;
   }
   return null;
 }
@@ -146,13 +174,13 @@ export function applySeniorityToProfile(profile: Profile): Profile {
     ...seniorityExcludesForProfile({ ...profile, experience: exp }),
   ];
 
+  // Junior seekers stay at a low year cap. Credibility may unlock mid *titles*,
+  // but must not inflate "max years required" to 4+ (that lets 5yr postings through
+  // when year text fails to parse, and is wrong for <2yr network aspirants).
   if (String(exp.level || "") === "junior_entry_associate") {
-    if (cred) {
-      exp.max_years_required = Math.max(exp.max_years_required || 3, 4);
-      exp.target_band = exp.target_band || "0-4";
-    } else {
-      exp.max_years_required = Math.min(exp.max_years_required || 3, 3);
-    }
+    const cap = cred ? 3 : 2;
+    exp.max_years_required = Math.min(exp.max_years_required ?? cap, cap);
+    exp.target_band = exp.target_band || `0-${cap}`;
   }
 
   return {

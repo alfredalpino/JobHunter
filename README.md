@@ -6,9 +6,11 @@
 
 <p align="center">
   <strong>Fresh jobs. Your resume. Your move.</strong><br />
-  Resume-first worldwide job filter by <a href="https://alfredterminal.xyz">Alfredterminal</a>.<br />
+  Resume-first worldwide job filter by <a href="https://alubaid.xyz">Alfred Alpino</a>.<br />
   <em>No auto-apply. You decide what to send.</em>
 </p>
+
+See [docs/BRAND.md](docs/BRAND.md) for the personal narrative and logo brief.
 
 ---
 
@@ -18,7 +20,7 @@
 
 ```bash
 npm install
-npm run dev -- -p 3000 -H 127.0.0.1
+npm run dev
 ```
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000) · operable app at [/app](http://127.0.0.1:3000/app) · API status at [/status](http://127.0.0.1:3000/status).

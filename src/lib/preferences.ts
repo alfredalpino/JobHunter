@@ -71,8 +71,8 @@ export function defaultPreferences(region = "dubai"): Preferences {
     work_auth: "",
     work_mode: "any",
     country_indeed: pack?.country_indeed || "",
-    recency_max_days: 99999,
-    date_window: "any_age",
+    recency_max_days: 14,
+    date_window: "all_fresh",
   };
 }
 
@@ -95,6 +95,12 @@ export function applyPreferencesToProfile(
       if (!allow.includes(sig)) allow.push(sig);
     }
   }
+  if (workMode === "hybrid") {
+    for (const sig of ["hybrid", "remote", "flexible"]) {
+      if (!allow.includes(sig)) allow.push(sig);
+    }
+    reject = uniq([...reject, "fully remote only", "remote-only", "100% remote"]);
+  }
   if (workMode === "onsite") {
     reject = uniq([
       ...reject,
@@ -102,6 +108,20 @@ export function applyPreferencesToProfile(
       "remote-only",
       "100% remote",
     ]);
+  }
+
+  const workAuth = (prefs.work_auth || profile.candidate.work_auth || "")
+    .toLowerCase()
+    .trim();
+  if (workAuth.includes("sponsor")) {
+    for (const sig of ["visa", "sponsor", "sponsorship", "relocation"]) {
+      if (!allow.includes(sig)) allow.push(sig);
+    }
+  }
+  if (workAuth.includes("authorized") || workAuth.includes("citizen")) {
+    for (const sig of ["eligible to work", "authorized", "no sponsorship"]) {
+      if (!allow.includes(sig)) allow.push(sig);
+    }
   }
 
   const merged: Profile = {
@@ -173,10 +193,18 @@ export function applyPreferencesToProfile(
 
   const band = (prefs.seniority_band || "").toLowerCase().trim();
   if (band) {
+    const level = BAND_TO_LEVEL[band] || "junior_entry_associate";
+    const maxLevel =
+      band === "intern" || band === "junior"
+        ? "junior"
+        : band === "mid"
+          ? "mid"
+          : band;
     merged.experience = {
       ...merged.experience,
       seniority_band: band,
-      level: BAND_TO_LEVEL[band] || "junior_entry_associate",
+      level,
+      max_job_level: maxLevel,
     };
   }
 

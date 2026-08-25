@@ -3,14 +3,44 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   downloadText,
-  getJobStatus,
-  jobsToMarkdown,
   loadAppliedMap,
   setJobStatus,
-  todaysQueue,
 } from "@/lib/applied";
+import {
+  DRIP_BATCH,
+  advanceDripCursor,
+  dripBatch,
+  dripEligibleQueue,
+} from "@/lib/drip";
+import { buildHuntQueries } from "@/lib/huntQueries";
+import {
+  clearGeminiKey,
+  loadAiPolishPref,
+  loadGeminiKey,
+  saveAiPolishPref,
+  saveGeminiKey,
+} from "@/lib/geminiKey";
+import { HuntFilters } from "@/components/hunt/HuntFilters";
+import { HuntResults } from "@/components/hunt/HuntResults";
+import { HuntSearchHeader } from "@/components/hunt/HuntSearchHeader";
+import { ProfileRail } from "@/components/hunt/ProfileRail";
+import { ResumePanel } from "@/components/hunt/ResumePanel";
 import { getRegion } from "@/lib/config";
-import { DATE_WINDOWS, defaultPreferences, maxDaysForWindow } from "@/lib/preferences";
+import { defaultPreferences, maxDaysForWindow } from "@/lib/preferences";
+import {
+  applyJobFilters,
+  jobLevelToSeniorityBand,
+  mergeProfileIntoPrefs,
+  partitionJobsByBucket,
+  seniorityBandToJobLevel,
+  splitKeywordListInput,
+  splitListInput,
+} from "@/lib/filters";
+import {
+  applyTitlesToProfile,
+  buildMinimalProfileFromTitles,
+  parseTitleKeywords,
+} from "@/lib/searchProfile";
 import { clearSession, loadSession, saveSession } from "@/lib/storage";
 import type {
   AppliedRecord,
@@ -24,10 +54,10 @@ import type {
 import { parsePreferencesYaml, preferencesToYaml } from "@/lib/yaml";
 
 type RegionOpt = { id: string; label: string };
-type Step = 1 | 2 | 3 | 4;
+
+const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export function HuntApp() {
-  const [step, setStep] = useState<Step>(1);
   const [regions, setRegions] = useState<RegionOpt[]>([]);
   const [name, setName] = useState("");
   const [resumeText, setResumeText] = useState("");
@@ -48,97 +78,186 @@ export function HuntApp() {
   const [showBandC, setShowBandC] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | JobStatus>("all");
   const [useAi, setUseAi] = useState(false);
-  const [dateFilter, setDateFilter] = useState<DateWindowId>("any_age");
+  const [geminiKey, setGeminiKey] = useState("");
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [serverAiReady, setServerAiReady] = useState(false);
+  const [dateFilter, setDateFilter] = useState<DateWindowId>("all_fresh");
   const [fitFilter, setFitFilter] = useState<"eligible" | "all">("eligible");
+  const [excludeInput, setExcludeInput] = useState("");
+  const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
+  const [dripCursor, setDripCursor] = useState(0);
+  const [showAllMatches, setShowAllMatches] = useState(false);
+  const [huntSource, setHuntSource] = useState<"index" | "live_scrape" | null>(
+    null,
+  );
+  const [titlesInput, setTitlesInput] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     fetch("/api/regions")
       .then((r) => r.json())
-      .then((data) => setRegions(data.regions ?? []))
-      .catch(() => setError("Could not load regions."));
+      .then((data) => {
+        if (!cancelled) setRegions(data.regions ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Could not load regions.");
+      });
 
+    fetch("/api/polish")
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setServerAiReady(Boolean(data.configured));
+      })
+      .catch(() => {
+        /* optional */
+      });
+
+    setGeminiKey(loadGeminiKey());
+    setUseAi(loadAiPolishPref());
+
+    /* eslint-disable react-hooks/set-state-in-effect -- intentional post-mount localStorage sync */
     const saved = loadSession();
-    setApplied(loadAppliedMap());
-    if (saved?.profile) {
+    const appliedMap = loadAppliedMap();
+    setApplied(appliedMap);
+
+    const canRestore =
+      saved?.profile &&
+      saved.results?.length &&
+      saved.huntedAt &&
+      Date.now() - new Date(saved.huntedAt).getTime() < SESSION_MAX_AGE_MS;
+
+    if (canRestore && saved) {
+      const nextPrefs =
+        saved.preferences || defaultPreferences(saved.region || "dubai");
       setProfile(saved.profile);
-      setName(saved.name || saved.profile.candidate.name);
-      if (saved.preferences) {
-        setPrefs(saved.preferences);
-        setYamlText(preferencesToYaml(saved.preferences));
-        if (saved.preferences.date_window) {
-          setDateFilter(saved.preferences.date_window);
-        }
-      }
-      if (saved.region) {
-        setPrefs((p) => ({ ...p, region: saved.region }));
-      }
-      if (saved.results?.length) {
-        setAllJobs(saved.results);
-        setHuntedAt(saved.huntedAt);
-        setStep(4);
-      } else {
-        setStep(2);
-      }
-      if (saved.showBandC) setShowBandC(true);
+      setName(saved.profile?.candidate?.name || saved.name || "");
+      setAllJobs(saved.results || []);
+      setHuntedAt(saved.huntedAt);
+      setPrefs(nextPrefs);
+      setYamlText(preferencesToYaml(nextPrefs));
+      setExcludeInput((nextPrefs.exclude_titles || []).join(", "));
+      setTitlesInput(
+        (
+          saved.profile?.target_titles ||
+          nextPrefs.target_titles ||
+          []
+        ).join(", "),
+      );
+      setShowBandC(saved.showBandC ?? false);
+      setDripCursor(saved.dripCursor ?? 0);
+      setShowAllMatches(saved.showAllMatches ?? false);
+      setHuntSource(saved.huntSource ?? null);
+      setDateFilter(nextPrefs.date_window || "all_fresh");
+      setStatus("Restored your last hunt from this browser.");
+    } else {
+      clearSession();
+      setProfile(null);
+      setAllJobs([]);
+      setSources([]);
+      setFetched(0);
+      setHuntedAt(null);
+      setName("");
+      setResumeText("");
+      setFile(null);
+      setPrefs(defaultPreferences("dubai"));
+      setYamlText(preferencesToYaml(defaultPreferences("dubai")));
+      setExcludeInput("");
+      setTitlesInput("");
+      setStatus(null);
     }
+    setError(null);
+    setSelectedUrls(new Set());
+    /* eslint-enable react-hooks/set-state-in-effect */
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!allJobs.length) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [allJobs.length]);
+
+  const filterSummary = useMemo(() => {
+    const parts = [`fit:${fitFilter}`, `date:${dateFilter}`];
+    if (prefs.work_mode && prefs.work_mode !== "any") {
+      parts.push(`work:${prefs.work_mode}`);
+    }
+    if (statusFilter !== "all") parts.push(`status:${statusFilter}`);
+    if (showBandC) parts.push("bandC:on");
+    return parts.join(", ");
+  }, [fitFilter, dateFilter, statusFilter, showBandC, prefs.work_mode]);
+
+  function toggleSelected(url: string) {
+    setSelectedUrls((prev) => {
+      const next = new Set(prev);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
+      return next;
+    });
+  }
+
+  function selectAllVisible() {
+    setSelectedUrls(new Set(visibleJobs.map((j) => j.url).filter(Boolean)));
+  }
+
+  function clearSelection() {
+    setSelectedUrls(new Set());
+  }
+
+  function downloadPrefsYaml() {
+    downloadText(
+      `preferences-${prefs.region}-${new Date().toISOString().slice(0, 10)}.yaml`,
+      preferencesToYaml(prefs),
+      "text/yaml;charset=utf-8",
+    );
+    setStatus("Preferences YAML downloaded.");
+  }
+
+  function commitExcludeTitles(nextRaw = excludeInput): string[] {
+    const parsed = splitKeywordListInput(nextRaw);
+    setExcludeInput(nextRaw);
+    syncPrefs({ ...prefs, exclude_titles: parsed });
+    return parsed;
+  }
 
   const yamlPreview = useMemo(() => preferencesToYaml(prefs), [prefs]);
 
-  const visibleJobs = useMemo(() => {
-    let list = allJobs;
+  const visibleJobs = useMemo(
+    () =>
+      applyJobFilters(allJobs, {
+        fitFilter,
+        dateFilter,
+        showBandC,
+        statusFilter,
+        applied,
+        workModeFilter: prefs.work_mode,
+      }),
+    [allJobs, showBandC, statusFilter, applied, dateFilter, fitFilter, prefs.work_mode],
+  );
 
-    // 1) Fit filter (eligible vs all scraped)
-    if (fitFilter === "eligible") {
-      list = list.filter((j) => j.eligible);
-    }
-
-    // 2) Date window (client-side only — pool already has every age)
-    const w = DATE_WINDOWS.find((d) => d.id === dateFilter);
-    if (w && dateFilter !== "any_age") {
-      list = list.filter((j) => {
-        const age = j.posted_age_days;
-        if (age == null) {
-          return dateFilter === "all_fresh" || dateFilter === "one_month";
-        }
-        return age >= w.minDays && age <= w.maxDays;
-      });
-    }
-
-    // 3) Band C (only hides weak eligible matches)
-    if (!showBandC && fitFilter === "eligible") {
-      list = list.filter((j) => j.match?.band !== "C");
-    }
-
-    // 4) Apply status
-    if (statusFilter !== "all") {
-      list = list.filter((j) => getJobStatus(j.url, applied) === statusFilter);
-    }
-
-    return list;
-  }, [allJobs, showBandC, statusFilter, applied, dateFilter, fitFilter]);
-
-  const today10 = useMemo(
-    () => todaysQueue(visibleJobs, applied, 10),
+  const dripQueue = useMemo(
+    () => dripEligibleQueue(visibleJobs, applied),
     [visibleJobs, applied],
   );
 
-  const byBucket = useMemo(() => {
-    const groups: Record<string, Job[]> = {
-      last_7_days: [],
-      days_8_to_14: [],
-      days_15_to_21: [],
-      days_22_to_30: [],
-      older: [],
-      unknown: [],
-    };
-    for (const j of visibleJobs) {
-      const b = j.recency_bucket || "unknown";
-      if (groups[b]) groups[b].push(j);
-      else groups.unknown.push(j);
-    }
-    return groups;
-  }, [visibleJobs]);
+  const drip = useMemo(
+    () => dripBatch(dripQueue, dripCursor, DRIP_BATCH),
+    [dripQueue, dripCursor],
+  );
+
+  const today10 = drip.batch;
+
+  const byBucket = useMemo(
+    () => partitionJobsByBucket(visibleJobs),
+    [visibleJobs],
+  );
 
   const eligibleTotal = useMemo(
     () => allJobs.filter((j) => j.eligible).length,
@@ -149,6 +268,92 @@ export function HuntApp() {
     setPrefs(next);
     setYamlText(preferencesToYaml(next));
     saveSession({ preferences: next, region: next.region });
+  }
+
+  function syncProfileAndPrefs(nextProfile: Profile, basePrefs = prefs) {
+    setProfile(nextProfile);
+    setTitlesInput((nextProfile.target_titles || []).join(", "));
+    const merged = mergeProfileIntoPrefs(nextProfile, basePrefs);
+    syncPrefs(merged);
+    setExcludeInput((merged.exclude_titles || []).join(", "));
+    saveSession({ profile: nextProfile, preferences: merged });
+  }
+
+  /** Commit search-bar titles into profile + prefs (creates minimal profile if needed). */
+  function commitTitles(raw = titlesInput): Profile | null {
+    const titles = parseTitleKeywords(raw);
+    setTitlesInput(titles.join(", "));
+    if (!titles.length) {
+      if (profile) {
+        const next = applyTitlesToProfile(profile, []);
+        syncProfileAndPrefs(next, { ...prefs, target_titles: [] });
+        return next;
+      }
+      return null;
+    }
+
+    if (profile) {
+      const next = applyTitlesToProfile(profile, titles);
+      syncProfileAndPrefs(next, { ...prefs, target_titles: titles });
+      return next;
+    }
+
+    try {
+      const minimal = buildMinimalProfileFromTitles({
+        titles,
+        name,
+        regionId: prefs.region,
+        locations: prefs.locations,
+      });
+      syncProfileAndPrefs(minimal, {
+        ...prefs,
+        target_titles: titles,
+        seniority_band: "mid",
+      });
+      return minimal;
+    } catch {
+      return null;
+    }
+  }
+
+  function ensureHuntProfile(): Profile | null {
+    const titles = parseTitleKeywords(titlesInput);
+    if (profile) {
+      if (titles.length) {
+        return commitTitles(titlesInput) || profile;
+      }
+      if (profile.target_titles?.length) return profile;
+      setError("Enter at least one job title in the search bar.");
+      return null;
+    }
+    if (!titles.length) {
+      setError("Type a job title above, or analyze a resume first.");
+      return null;
+    }
+    return commitTitles(titlesInput);
+  }
+
+  function onDateWindowChange(id: DateWindowId) {
+    setDateFilter(id);
+    syncPrefs({
+      ...prefs,
+      date_window: id,
+      recency_max_days: maxDaysForWindow(id),
+    });
+  }
+
+  function resetResultFilters() {
+    const windowId = prefs.date_window || "all_fresh";
+    setDateFilter(windowId);
+    setFitFilter("eligible");
+    setStatusFilter("all");
+    setShowBandC(false);
+    syncPrefs({ ...prefs, work_mode: "any" });
+    saveSession({ showBandC: false });
+  }
+
+  function onWorkModeChange(mode: Preferences["work_mode"]) {
+    syncPrefs({ ...prefs, work_mode: mode });
   }
 
   function onNewCandidate() {
@@ -165,7 +370,31 @@ export function HuntApp() {
     setYamlText(preferencesToYaml(defaultPreferences("dubai")));
     setStatus(null);
     setError(null);
-    setStep(1);
+    setDateFilter("all_fresh");
+    setFitFilter("eligible");
+    setStatusFilter("all");
+    setShowBandC(false);
+    setExcludeInput("");
+    setDripCursor(0);
+    setShowAllMatches(false);
+    setHuntSource(null);
+    setSelectedUrls(new Set());
+    setTitlesInput("");
+  }
+
+  function polishPayload(payload: Record<string, unknown>): Record<string, unknown> {
+    const key = geminiKey.trim();
+    return key ? { ...payload, geminiKey: key } : payload;
+  }
+
+  function onGeminiKeyChange(value: string) {
+    setGeminiKey(value);
+    saveGeminiKey(value);
+  }
+
+  function onUseAiChange(checked: boolean) {
+    setUseAi(checked);
+    saveAiPolishPref(checked);
   }
 
   async function onAnalyze(e: React.FormEvent) {
@@ -190,7 +419,7 @@ export function HuntApp() {
         const polish = await fetch("/api/polish", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mode: "profile", profile: p }),
+          body: JSON.stringify(polishPayload({ mode: "profile", profile: p })),
         });
         const pdata = await polish.json();
         if (polish.ok && pdata.ok && pdata.profile) {
@@ -206,19 +435,45 @@ export function HuntApp() {
         setStatus(data.message);
       }
 
-      setProfile(p);
-      const next = {
-        ...prefs,
-        target_titles: p.target_titles.slice(0, 6),
-        must_have_skills: p.skills_positive.slice(0, 8),
+      const cleaned = {
+        ...p,
+        target_titles: splitListInput(p.target_titles.join("\n")),
+        skills_positive: splitListInput(p.skills_positive.join(", ")),
+        experience: {
+          ...p.experience,
+          max_job_level:
+            p.experience.max_job_level ||
+            seniorityBandToJobLevel(p.experience.seniority_band),
+        },
       };
-      if (!next.locations.length) {
-        const pack = getRegion(next.region);
-        next.locations = pack ? [...pack.locations] : [];
+      // Prefer titles already typed in the search bar when analyze returns empty/weak set.
+      const typed = parseTitleKeywords(titlesInput);
+      if (typed.length && cleaned.target_titles.length === 0) {
+        cleaned.target_titles = typed;
+        cleaned.search_queries = buildHuntQueries(cleaned).slice(0, 6);
       }
+      setProfile(cleaned);
+      setTitlesInput(cleaned.target_titles.join(", "));
+      const next = mergeProfileIntoPrefs(cleaned, {
+        ...defaultPreferences("dubai"),
+        ...(typed.length ? { target_titles: typed } : {}),
+        region: prefs.region,
+        locations: prefs.locations,
+        work_mode: prefs.work_mode,
+      });
       syncPrefs(next);
-      saveSession({ name: p.candidate.name, profile: p, preferences: next });
-      setStep(2);
+      setExcludeInput((next.exclude_titles || []).join(", "));
+      saveSession({
+        name: cleaned.candidate.name,
+        profile: cleaned,
+        preferences: next,
+      });
+      if (!useAi) {
+        setStatus(
+          data.message ||
+            "Resume analyzed — tweak titles above and hunt when ready.",
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Analyze failed");
     } finally {
@@ -236,20 +491,12 @@ export function HuntApp() {
     });
   }
 
-  function onDateWindowChange(id: DateWindowId) {
-    setDateFilter(id);
-    syncPrefs({
-      ...prefs,
-      date_window: id,
-      recency_max_days: maxDaysForWindow(id),
-    });
-  }
-
   function applyYaml() {
     try {
       const parsed = parsePreferencesYaml(yamlText);
       syncPrefs(parsed);
       if (parsed.date_window) setDateFilter(parsed.date_window);
+      setExcludeInput((parsed.exclude_titles || []).join(", "));
       setStatus("Preferences loaded from YAML.");
     } catch {
       setError("Could not parse preferences YAML.");
@@ -259,22 +506,58 @@ export function HuntApp() {
   function updateProfileField(patch: Partial<Profile>) {
     if (!profile) return;
     const next = { ...profile, ...patch };
-    setProfile(next);
-    saveSession({ profile: next });
+    if (patch.candidate) {
+      next.candidate = { ...profile.candidate, ...patch.candidate };
+    }
+    if (patch.target_titles) {
+      next.target_titles = splitListInput(patch.target_titles.join("\n"));
+      next.search_queries = buildHuntQueries(next).slice(0, 6);
+      setTitlesInput(next.target_titles.join(", "));
+    }
+    if (patch.skills_positive) {
+      next.skills_positive = splitListInput(patch.skills_positive.join(", "));
+    }
+    if (patch.experience?.max_job_level) {
+      syncProfileAndPrefs(next, {
+        ...prefs,
+        seniority_band: jobLevelToSeniorityBand(patch.experience.max_job_level),
+      });
+      return;
+    }
+    syncProfileAndPrefs(next);
+  }
+
+  function onSeniorityBandChange(band: string) {
+    if (!profile) return;
+    const maxLevel = seniorityBandToJobLevel(band);
+    syncProfileAndPrefs(
+      {
+        ...profile,
+        experience: {
+          ...profile.experience,
+          max_job_level: maxLevel,
+          seniority_band: band,
+        },
+      },
+      { ...prefs, seniority_band: band },
+    );
   }
 
   async function onHunt() {
-    if (!profile) {
-      setError("Analyze a resume first.");
-      setStep(1);
-      return;
-    }
+    const huntProfile = ensureHuntProfile();
+    if (!huntProfile) return;
     setBusy(true);
     setError(null);
     setStatus("Loading all public job listings…");
     try {
+      const excludeTitles = splitKeywordListInput(excludeInput);
+      if (excludeTitles.join(", ") !== prefs.exclude_titles.join(", ")) {
+        syncPrefs({ ...prefs, exclude_titles: excludeTitles });
+      }
       const huntPrefs = {
         ...prefs,
+        target_titles: huntProfile.target_titles,
+        exclude_titles: excludeTitles,
         date_window: "any_age" as DateWindowId,
         recency_max_days: 99999,
       };
@@ -282,7 +565,7 @@ export function HuntApp() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          profile,
+          profile: huntProfile,
           preferences: huntPrefs,
           region: huntPrefs.region,
         }),
@@ -302,27 +585,76 @@ export function HuntApp() {
             ...(data.buckets?.unknown || []),
           ];
 
+      const src =
+        data.source === "index" || data.source === "live_scrape"
+          ? data.source
+          : "live_scrape";
+      setHuntSource(src);
+
       if (useAi && combined.filter((j) => j.eligible).length) {
+        const eligible = combined.filter((j) => j.eligible);
+        setStatus("AI re-ranking shortlist (BYOK / server key)…");
+        const shortlist = eligible.slice(0, 40);
+        const rerank = await fetch("/api/polish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            polishPayload({
+              mode: "rerank",
+              profile: huntProfile,
+              jobs: shortlist,
+            }),
+          ),
+        });
+        const rdata = await rerank.json();
+        if (
+          rerank.ok &&
+          rdata.ok &&
+          Array.isArray(rdata.ordered_urls) &&
+          rdata.ordered_urls.length
+        ) {
+          const order = rdata.ordered_urls as string[];
+          const notes = (rdata.notes || {}) as Record<string, string>;
+          const rank = new Map(order.map((u, i) => [u, i]));
+          const rest = combined.filter((j) => !rank.has(j.url));
+          const ranked = [...shortlist].sort(
+            (a, b) =>
+              (rank.get(a.url) ?? 999) - (rank.get(b.url) ?? 999),
+          );
+          combined = [
+            ...ranked.map((j) =>
+              notes[j.url] ? { ...j, ai_note: notes[j.url] } : j,
+            ),
+            ...rest,
+          ];
+        }
+
         setStatus("Adding AI match notes for top eligible roles…");
         const top = combined.filter((j) => j.eligible).slice(0, 15);
         const polish = await fetch("/api/polish", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: "matches",
-            profile,
-            jobs: top,
-          }),
+          body: JSON.stringify(
+            polishPayload({
+              mode: "matches",
+              profile: huntProfile,
+              jobs: top,
+            }),
+          ),
         });
         const pdata = await polish.json();
         if (polish.ok && pdata.ok && Array.isArray(pdata.jobs)) {
-          const notes = new Map(
+          const notesMap = new Map(
             (pdata.jobs as Job[]).map((j) => [j.url, j]),
           );
           combined = combined.map((j) => {
-            const n = notes.get(j.url);
+            const n = notesMap.get(j.url);
             return n
-              ? { ...j, ai_note: n.ai_note, ai_bullets: n.ai_bullets }
+              ? {
+                  ...j,
+                  ai_note: n.ai_note || j.ai_note,
+                  ai_bullets: n.ai_bullets || j.ai_bullets,
+                }
               : j;
           });
         }
@@ -331,9 +663,11 @@ export function HuntApp() {
       setAllJobs(combined);
       setSources(data.sources || []);
       setFetched(data.fetched || combined.length);
-      setDateFilter("any_age");
+      setDripCursor(0);
+      setShowAllMatches(false);
+      const resultWindow = prefs.date_window || "all_fresh";
+      setDateFilter(resultWindow);
       const elig = combined.filter((j) => j.eligible).length;
-      // If nothing matches the resume tightly, show the full scrape so user isn't blank
       setFitFilter(elig > 0 ? "eligible" : "all");
       const when = new Date().toISOString();
       setHuntedAt(when);
@@ -341,15 +675,21 @@ export function HuntApp() {
         results: combined,
         huntedAt: when,
         preferences: { ...huntPrefs, date_window: "any_age" },
-        profile,
+        profile: huntProfile,
         showBandC,
+        dripCursor: 0,
+        showAllMatches: false,
+        huntSource: src,
       });
+      const srcLabel =
+        src === "index"
+          ? `index (${data.index_count ?? combined.length})`
+          : "live scrape";
       setStatus(
         elig > 0
-          ? `Loaded ${combined.length} listings · ${elig} eligible for your profile. Filter by date below. No auto-apply.`
-          : `Loaded ${combined.length} listings · 0 tight matches for your titles — showing all scraped jobs. Tighten titles or keep browsing. No auto-apply.`,
+          ? `Loaded ${combined.length} via ${srcLabel} · ${elig} eligible. Match loop shows 10 at a time. No auto-apply.`
+          : `Loaded ${combined.length} via ${srcLabel} · 0 tight matches — showing all. No auto-apply.`,
       );
-      setStep(4);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Hunt failed");
     } finally {
@@ -360,6 +700,20 @@ export function HuntApp() {
   function mark(url: string, st: JobStatus) {
     const next = setJobStatus(url, st, applied);
     setApplied(next);
+    if (st === "applied" || st === "skipped" || st === "ghosted") {
+      saveSession({ dripCursor });
+    }
+  }
+
+  function loadNextDrip() {
+    const next = advanceDripCursor(dripCursor, dripQueue.length, DRIP_BATCH);
+    setDripCursor(next);
+    saveSession({ dripCursor: next });
+    setStatus(
+      next >= dripQueue.length
+        ? "End of match loop — toggle Show all matches for the full list."
+        : `Unlocked next ${DRIP_BATCH} matches.`,
+    );
   }
 
   function wrongFit(kind: "seniority" | "field", job: Job) {
@@ -378,6 +732,7 @@ export function HuntApp() {
       ],
     };
     syncPrefs(next);
+    setExcludeInput(next.exclude_titles.join(", "));
     mark(job.url, "skipped");
     setStatus(
       kind === "seniority"
@@ -386,750 +741,201 @@ export function HuntApp() {
     );
   }
 
-  function exportMd() {
-    const md = jobsToMarkdown(
-      visibleJobs,
-      applied,
-      `Eligible jobs — ${profile?.candidate.name || "candidate"}`,
-    );
-    downloadText(
-      `eligible-${(profile?.candidate.name || "jobs").replace(/\s+/g, "-").toLowerCase()}.md`,
-      md,
-    );
-  }
-
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <ol className="flex flex-wrap gap-2 text-xs uppercase tracking-[0.14em] text-sand-muted">
-          {(
-            [
-              [1, "Resume"],
-              [2, "Region"],
-              [3, "Preferences"],
-              [4, "Results"],
-            ] as const
-          ).map(([n, label]) => (
-            <li key={n}>
-              <button
-                type="button"
-                onClick={() => setStep(n)}
-                className={`focus-ring rounded-full px-3 py-1.5 ${
-                  step === n ? "bg-seafoam/20 text-seafoam" : "hover:text-sand"
-                }`}
-              >
-                {n}. {label}
-              </button>
-            </li>
-          ))}
-        </ol>
+    <div className="space-y-6">
+      <header className="rise flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="glass-badge inline-flex px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-seafoam">
+            Title-first hunt
+          </p>
+          <h1 className="mt-3 font-[family-name:var(--font-fraunces)] text-3xl font-light tracking-tight text-sand md:text-4xl">
+            Find fresh roles that fit you
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-sand-muted">
+            Type job titles, pick a region, Hunt. Analyze a resume when you want
+            tighter fit — we never auto-apply.
+          </p>
+        </div>
         <button
           type="button"
           onClick={onNewCandidate}
-          className="focus-ring rounded-full border border-[var(--line)] px-3 py-1.5 text-xs text-sand-muted hover:text-sand"
+          className="focus-ring glass-btn-ghost touch-target shrink-0 self-start px-4 py-2.5 text-sm sm:self-auto"
         >
-          New candidate
+          Start over
         </button>
-      </div>
+      </header>
 
       {error ? (
-        <p
-          className="rounded-xl border border-copper/40 bg-copper/10 px-4 py-3 text-sm text-copper"
-          role="alert"
-        >
+        <p className="glass-alert px-4 py-3 text-sm text-copper" role="alert">
           {error}
         </p>
       ) : null}
       {status ? (
-        <p className="text-sm text-seafoam" role="status">
+        <p className="glass-alert-success px-4 py-3 text-sm" role="status">
           {status}
         </p>
       ) : null}
 
-      {step === 1 ? (
-        <section className="rounded-2xl border border-[var(--line)] bg-ink-mid/50 p-6">
-          <h2 className="font-[family-name:var(--font-fraunces)] text-2xl font-light text-sand">
-            1. Analyze resume
-          </h2>
-          <p className="mt-2 text-sm text-sand-muted">
-            Paste CV text or upload PDF/TXT. Local parse by default — optional AI
-            polish uses a little Gemini credit.
-          </p>
-          <form onSubmit={onAnalyze} className="mt-6 space-y-4">
-            <label className="block text-sm">
-              <span className="text-sand-muted">Display name</span>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
-                className="focus-ring mt-1 w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 text-sand placeholder:text-sand-muted/50"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="text-sand-muted">Resume file (PDF or TXT)</span>
-              <input
-                type="file"
-                accept=".pdf,.txt,.md,text/plain,application/pdf"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="focus-ring mt-1 block w-full text-sm text-sand-muted file:mr-3 file:rounded-full file:border-0 file:bg-seafoam/20 file:px-3 file:py-1.5 file:text-seafoam"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="text-sand-muted">Or paste resume text</span>
-              <textarea
-                value={resumeText}
-                onChange={(e) => setResumeText(e.target.value)}
-                rows={10}
-                placeholder="Paste your CV here…"
-                className="focus-ring mt-1 w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 font-mono text-xs text-sand placeholder:text-sand-muted/50"
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-sand-muted">
-              <input
-                type="checkbox"
-                checked={useAi}
-                onChange={(e) => setUseAi(e.target.checked)}
-              />
-              Polish with AI (uses a little credit — needs GEMINI_API_KEY)
-            </label>
-            <button
-              type="submit"
-              disabled={busy}
-              className="focus-ring rounded-full bg-copper px-5 py-2.5 text-sm font-semibold text-ink transition-transform hover:-translate-y-0.5 disabled:opacity-60"
-            >
-              {busy ? "Analyzing…" : "Analyze resume"}
-            </button>
-          </form>
-        </section>
-      ) : null}
+      <HuntSearchHeader
+        titlesInput={titlesInput}
+        onTitlesInputChange={setTitlesInput}
+        onTitlesCommit={() => {
+          commitTitles();
+        }}
+        regionId={prefs.region}
+        regions={regions}
+        onRegionChange={onRegionChange}
+        locations={prefs.locations}
+        busy={busy}
+        canHunt={
+          parseTitleKeywords(titlesInput).length > 0 ||
+          Boolean(profile?.target_titles?.length)
+        }
+        onHunt={onHunt}
+        huntSource={huntSource}
+      />
 
-      {step === 2 && profile ? (
-        <section className="rounded-2xl border border-[var(--line)] bg-ink-mid/50 p-6">
-          <h2 className="font-[family-name:var(--font-fraunces)] text-2xl font-light text-sand">
-            2. Confirm profile & region
-          </h2>
-          <p className="mt-2 text-sm text-sand-muted">
-            Edit what we extracted before hunting — bad parse should never silently
-            ruin results.
-          </p>
+      <div className="grid gap-6 lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)] lg:items-start">
+        <aside className="space-y-4 lg:sticky lg:top-2 lg:max-h-[calc(100svh-1rem)] lg:overflow-y-auto lg:pr-1">
+          <ResumePanel
+            name={name}
+            onNameChange={setName}
+            resumeText={resumeText}
+            onResumeTextChange={setResumeText}
+            onFileChange={setFile}
+            busy={busy}
+            onAnalyze={onAnalyze}
+            useAi={useAi}
+            onUseAiChange={onUseAiChange}
+            geminiKey={geminiKey}
+            onGeminiKeyChange={onGeminiKeyChange}
+            showGeminiKey={showGeminiKey}
+            onToggleShowGeminiKey={() => setShowGeminiKey((v) => !v)}
+            onClearGeminiKey={() => {
+              onGeminiKeyChange("");
+              clearGeminiKey();
+            }}
+            serverAiReady={serverAiReady}
+            hasProfile={Boolean(profile && profile.source !== "titles")}
+          />
 
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <label className="block text-sm md:col-span-2">
-              <span className="text-sand-muted">Target titles (comma-separated)</span>
-              <input
-                value={profile.target_titles.join(", ")}
-                onChange={(e) =>
-                  updateProfileField({
-                    target_titles: splitCsv(e.target.value),
-                    search_queries: splitCsv(e.target.value).slice(0, 4),
-                  })
-                }
-                className="focus-ring mt-1 w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 text-sand"
-              />
-            </label>
-            <label className="block text-sm md:col-span-2">
-              <span className="text-sand-muted">Skills</span>
-              <input
-                value={profile.skills_positive.join(", ")}
-                onChange={(e) =>
-                  updateProfileField({
-                    skills_positive: splitCsv(e.target.value),
-                  })
-                }
-                className="focus-ring mt-1 w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 text-sand"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="text-sand-muted">Max years required (cap)</span>
-              <input
-                type="number"
-                min={1}
-                max={15}
-                value={profile.experience.max_years_required}
-                onChange={(e) =>
-                  updateProfileField({
-                    experience: {
-                      ...profile.experience,
-                      max_years_required: Number(e.target.value) || 3,
-                    },
-                  })
-                }
-                className="focus-ring mt-1 w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 text-sand"
-              />
-            </label>
-            <label className="block text-sm">
-              <span className="text-sand-muted">Max job level</span>
-              <select
-                value={profile.experience.max_job_level || "mid"}
-                onChange={(e) =>
-                  updateProfileField({
-                    experience: {
-                      ...profile.experience,
-                      max_job_level: e.target.value,
-                    },
-                  })
-                }
-                className="focus-ring mt-1 w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 text-sand"
-              >
-                {["junior", "mid", "senior", "lead", "executive"].map((l) => (
-                  <option key={l} value={l}>
-                    {l}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="text-sand-muted">Region pack</span>
-              <select
-                value={prefs.region}
-                onChange={(e) => onRegionChange(e.target.value)}
-                className="focus-ring mt-1 w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 text-sand"
-              >
-                {regions.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="text-sand-muted">Locations</span>
-              <input
-                value={prefs.locations.join(", ")}
-                onChange={(e) =>
-                  syncPrefs({
-                    ...prefs,
-                    locations: splitCsv(e.target.value),
-                  })
-                }
-                className="focus-ring mt-1 w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 text-sand"
-              />
-            </label>
-          </div>
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setStep(1)}
-              className="focus-ring rounded-full border border-[var(--line)] px-4 py-2 text-sm text-sand-muted"
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                syncPrefs({
-                  ...prefs,
-                  target_titles: profile.target_titles.slice(0, 6),
-                  must_have_skills: profile.skills_positive.slice(0, 8),
-                });
-                setStep(3);
-              }}
-              className="focus-ring rounded-full bg-copper px-5 py-2.5 text-sm font-semibold text-ink"
-            >
-              Continue to preferences
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {step === 3 ? (
-        <section className="rounded-2xl border border-[var(--line)] bg-ink-mid/50 p-6">
-          <h2 className="font-[family-name:var(--font-fraunces)] text-2xl font-light text-sand">
-            3. Preferences
-          </h2>
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <label className="block text-sm">
-              <span className="text-sand-muted">Posted date window</span>
-              <select
-                value={dateFilter}
-                onChange={(e) =>
-                  onDateWindowChange(e.target.value as DateWindowId)
-                }
-                className="focus-ring mt-1 w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 text-sand"
-              >
-                {DATE_WINDOWS.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="text-sand-muted">Seniority band</span>
-              <select
-                value={prefs.seniority_band}
-                onChange={(e) =>
-                  syncPrefs({ ...prefs, seniority_band: e.target.value })
-                }
-                className="focus-ring mt-1 w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 text-sand"
-              >
-                {["intern", "junior", "mid", "senior", "lead", "executive"].map(
-                  (b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ),
-                )}
-              </select>
-            </label>
-            <label className="block text-sm">
-              <span className="text-sand-muted">Work mode</span>
-              <select
-                value={prefs.work_mode}
-                onChange={(e) =>
-                  syncPrefs({
-                    ...prefs,
-                    work_mode: e.target.value as Preferences["work_mode"],
-                  })
-                }
-                className="focus-ring mt-1 w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 text-sand"
-              >
-                {["any", "remote", "hybrid", "onsite"].map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block text-sm md:col-span-2">
-              <span className="text-sand-muted">Exclude titles</span>
-              <input
-                value={prefs.exclude_titles.join(", ")}
-                onChange={(e) =>
-                  syncPrefs({
-                    ...prefs,
-                    exclude_titles: splitCsv(e.target.value),
-                  })
-                }
-                className="focus-ring mt-1 w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 text-sand"
-              />
-            </label>
-            <label className="flex items-center gap-2 text-sm text-sand-muted md:col-span-2">
-              <input
-                type="checkbox"
-                checked={useAi}
-                onChange={(e) => setUseAi(e.target.checked)}
-              />
-              AI match notes on top roles after hunt
-            </label>
-          </div>
-
-          <div className="mt-6">
-            <textarea
-              value={yamlText}
-              onChange={(e) => setYamlText(e.target.value)}
-              rows={8}
-              className="focus-ring w-full rounded-xl border border-[var(--line)] bg-ink px-3 py-2.5 font-mono text-xs text-seafoam"
+          {profile ? (
+            <ProfileRail
+              profile={profile}
+              prefs={prefs}
+              regions={regions}
+              updateProfileField={updateProfileField}
+              onSeniorityBandChange={onSeniorityBandChange}
+              onRegionChange={onRegionChange}
+              syncPrefs={syncPrefs}
+              splitListInput={splitListInput}
+              splitKeywordListInput={splitKeywordListInput}
             />
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setYamlText(yamlPreview)}
-                className="focus-ring rounded-full border border-[var(--line)] px-3 py-1.5 text-xs text-sand-muted"
-              >
-                Refresh YAML
-              </button>
-              <button
-                type="button"
-                onClick={applyYaml}
-                className="focus-ring rounded-full border border-seafoam/40 px-3 py-1.5 text-xs text-seafoam"
-              >
-                Apply YAML
-              </button>
-            </div>
-          </div>
+          ) : null}
 
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => setStep(2)}
-              className="focus-ring rounded-full border border-[var(--line)] px-4 py-2 text-sm text-sand-muted"
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              disabled={busy || !profile}
-              onClick={onHunt}
-              className="focus-ring rounded-full bg-copper px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-60"
-            >
-              {busy ? "Hunting…" : "Run job hunt"}
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {step === 4 ? (
-        <section className="space-y-8">
-          <div className="rounded-2xl border border-[var(--line)] bg-ink-mid/50 p-6">
-            <h2 className="font-[family-name:var(--font-fraunces)] text-2xl font-light text-sand">
-              4. Eligible jobs
-            </h2>
-            <p className="mt-2 text-sm text-sand-muted">
-              Load all scraped jobs first · filter date / fit here · track
-              applied · no auto-apply.
-            </p>
-            <p className="mt-3 text-sm text-seafoam">
-              {visibleJobs.length} showing · {eligibleTotal} eligible ·{" "}
-              {allJobs.length || fetched} loaded
-              {huntedAt ? ` · ${new Date(huntedAt).toLocaleString()}` : ""}
-            </p>
-
-            {!allJobs.length ? (
-              <p className="mt-4 rounded-xl border border-[var(--line)] bg-ink/40 px-4 py-3 text-sm text-sand-muted">
-                No listings loaded yet — run a hunt.
-              </p>
-            ) : null}
-            {allJobs.length > 0 && visibleJobs.length === 0 ? (
-              <p className="mt-4 rounded-xl border border-copper/40 bg-copper/10 px-4 py-3 text-sm text-copper">
-                Filters hid everything. Switch Fit to{" "}
-                <strong>All scraped</strong>, Date to{" "}
-                <strong>Any age</strong>, or enable <strong>Show band C</strong>.
-              </p>
-            ) : null}
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <label className="text-xs text-sand-muted">
-                Fit{" "}
-                <select
-                  value={fitFilter}
-                  onChange={(e) =>
-                    setFitFilter(e.target.value as "eligible" | "all")
-                  }
-                  className="ml-1 rounded-lg border border-[var(--line)] bg-ink px-2 py-1 text-sand"
+          <details className="glass-panel group p-4 sm:p-5">
+            <summary className="cursor-pointer list-none text-sm font-medium text-sand marker:content-none [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center justify-between gap-2">
+                Advanced (YAML preferences)
+                <span className="text-xs font-normal text-sand-muted group-open:hidden">
+                  Expand
+                </span>
+                <span className="hidden text-xs font-normal text-sand-muted group-open:inline">
+                  Collapse
+                </span>
+              </span>
+            </summary>
+            <div className="mt-3 space-y-2 border-t border-[var(--line)] pt-3">
+              <textarea
+                value={yamlText}
+                onChange={(e) => setYamlText(e.target.value)}
+                rows={8}
+                className="focus-ring glass-code w-full px-3 py-2.5 font-mono text-xs text-seafoam"
+              />
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setYamlText(yamlPreview)}
+                  className="focus-ring glass-btn-ghost touch-target px-3 py-2 text-xs"
                 >
-                  <option value="eligible">Eligible only</option>
-                  <option value="all">All scraped</option>
-                </select>
-              </label>
-              <label className="text-xs text-sand-muted">
-                Date filter{" "}
-                <select
-                  value={dateFilter}
-                  onChange={(e) =>
-                    onDateWindowChange(e.target.value as DateWindowId)
-                  }
-                  className="ml-1 rounded-lg border border-[var(--line)] bg-ink px-2 py-1 text-sand"
+                  Refresh YAML
+                </button>
+                <button
+                  type="button"
+                  onClick={applyYaml}
+                  className="focus-ring glass-btn-seafoam touch-target px-3 py-2 text-xs"
                 >
-                  {DATE_WINDOWS.map((w) => (
-                    <option key={w.id} value={w.id}>
-                      {w.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-xs text-sand-muted">
-                Status{" "}
-                <select
-                  value={statusFilter}
-                  onChange={(e) =>
-                    setStatusFilter(e.target.value as "all" | JobStatus)
-                  }
-                  className="ml-1 rounded-lg border border-[var(--line)] bg-ink px-2 py-1 text-sand"
+                  Apply YAML
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadPrefsYaml}
+                  className="focus-ring glass-btn-ghost touch-target px-3 py-2 text-xs"
                 >
-                  {[
-                    "all",
-                    "new",
-                    "saved",
-                    "ready",
-                    "applied",
-                    "skipped",
-                    "ghosted",
-                  ].map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex items-center gap-1 text-xs text-sand-muted">
-                <input
-                  type="checkbox"
-                  checked={showBandC}
-                  onChange={(e) => {
-                    setShowBandC(e.target.checked);
-                    saveSession({ showBandC: e.target.checked });
-                  }}
-                />
-                Show band C
-              </label>
+                  Download YAML
+                </button>
+              </div>
             </div>
+          </details>
+        </aside>
 
-            {sources.length ? (
-              <ul className="mt-4 flex flex-wrap gap-2 text-xs text-sand-muted">
-                {sources.map((s) => (
-                  <li
-                    key={s.id}
-                    className={`rounded-full border px-2.5 py-1 ${
-                      s.ok
-                        ? "border-[var(--line)]"
-                        : "border-copper/40 text-copper"
-                    }`}
-                  >
-                    {s.name}: {s.ok ? s.count : "error"}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-
-            <div className="mt-6 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => setStep(3)}
-                className="focus-ring rounded-full border border-[var(--line)] px-4 py-2 text-sm text-sand-muted"
-              >
-                Edit preferences
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={onHunt}
-                className="focus-ring rounded-full bg-copper px-5 py-2.5 text-sm font-semibold text-ink disabled:opacity-60"
-              >
-                {busy ? "Hunting…" : "Hunt again"}
-              </button>
-              <button
-                type="button"
-                onClick={exportMd}
-                className="focus-ring rounded-full border border-seafoam/40 px-4 py-2 text-sm text-seafoam"
-              >
-                Export markdown
-              </button>
-            </div>
-          </div>
-
-          <ResultsBucket
-            title="Today's 10 — apply these first"
-            jobs={today10}
-            empty="Queue clear — hunt again or show band C."
-            applied={applied}
-            onMark={mark}
-            onWrongFit={wrongFit}
-            highlight
+        <div className="min-w-0 space-y-6">
+          <HuntFilters
+            prefs={prefs}
+            fitFilter={fitFilter}
+            onFitFilterChange={setFitFilter}
+            dateFilter={dateFilter}
+            onDateWindowChange={onDateWindowChange}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            showBandC={showBandC}
+            onShowBandCChange={(v) => {
+              setShowBandC(v);
+              saveSession({ showBandC: v });
+            }}
+            onWorkModeChange={onWorkModeChange}
+            excludeInput={excludeInput}
+            onExcludeInputChange={setExcludeInput}
+            onExcludeCommit={() => commitExcludeTitles()}
+            onMustHaveSkillsChange={(skills) =>
+              syncPrefs({ ...prefs, must_have_skills: skills })
+            }
+            splitKeywordListInput={splitKeywordListInput}
+            onResetFilters={resetResultFilters}
           />
 
-          <ResultsBucket
-            title="This week (0–7 days)"
-            jobs={byBucket.last_7_days}
-            empty="No roles in the last 7 days for this filter."
+          <HuntResults
+            allJobs={allJobs}
+            visibleJobs={visibleJobs}
+            eligibleTotal={eligibleTotal}
+            fetched={fetched}
+            huntedAt={huntedAt}
+            huntSource={huntSource}
+            sources={sources}
+            today10={today10}
+            dripTotal={drip.total}
+            dripRemaining={drip.remaining}
+            showAllMatches={showAllMatches}
+            onToggleShowAll={() => {
+              const next = !showAllMatches;
+              setShowAllMatches(next);
+              saveSession({ showAllMatches: next });
+            }}
+            onLoadNextDrip={loadNextDrip}
+            byBucket={byBucket}
             applied={applied}
             onMark={mark}
             onWrongFit={wrongFit}
+            selectedUrls={selectedUrls}
+            onToggleSelect={toggleSelected}
+            onSelectAllVisible={selectAllVisible}
+            onClearSelection={clearSelection}
+            filterSummary={filterSummary}
+            candidateName={profile?.candidate.name}
+            onStatus={setStatus}
           />
-          <ResultsBucket
-            title="Last week (8–14 days)"
-            jobs={byBucket.days_8_to_14}
-            empty="No roles in the 8–14 day window."
-            applied={applied}
-            onMark={mark}
-            onWrongFit={wrongFit}
-          />
-          <ResultsBucket
-            title="2–3 weeks ago (15–21 days)"
-            jobs={byBucket.days_15_to_21}
-            empty="No roles in the 15–21 day window."
-            applied={applied}
-            onMark={mark}
-            onWrongFit={wrongFit}
-          />
-          <ResultsBucket
-            title="3–4 weeks ago (22–30 days)"
-            jobs={byBucket.days_22_to_30}
-            empty="No roles in the 22–30 day window."
-            applied={applied}
-            onMark={mark}
-            onWrongFit={wrongFit}
-          />
-          <ResultsBucket
-            title="Older than 30 days"
-            jobs={byBucket.older}
-            empty="No older dated roles in this view."
-            applied={applied}
-            onMark={mark}
-            onWrongFit={wrongFit}
-          />
-          <ResultsBucket
-            title="Unknown / missing post date"
-            jobs={byBucket.unknown}
-            empty="No undated roles in this view."
-            applied={applied}
-            onMark={mark}
-            onWrongFit={wrongFit}
-          />
-        </section>
-      ) : null}
+        </div>
+      </div>
     </div>
-  );
-}
-
-function splitCsv(s: string): string[] {
-  return s
-    .split(",")
-    .map((x) => x.trim())
-    .filter(Boolean);
-}
-
-function ResultsBucket({
-  title,
-  jobs,
-  empty,
-  applied,
-  onMark,
-  onWrongFit,
-  highlight,
-}: {
-  title: string;
-  jobs: Job[];
-  empty: string;
-  applied: Record<string, AppliedRecord>;
-  onMark: (url: string, st: JobStatus) => void;
-  onWrongFit: (kind: "seniority" | "field", job: Job) => void;
-  highlight?: boolean;
-}) {
-  return (
-    <section
-      className={`rounded-2xl border p-6 ${
-        highlight
-          ? "border-copper/50 bg-copper/5"
-          : "border-[var(--line)] bg-ink-mid/40"
-      }`}
-    >
-      <h3 className="text-lg font-medium text-sand">{title}</h3>
-      {!jobs.length ? (
-        <p className="mt-4 text-sm text-sand-muted">{empty}</p>
-      ) : (
-        <ul className="mt-4 space-y-4">
-          {jobs.map((job) => {
-            const st = getJobStatus(job.url, applied);
-            return (
-              <li
-                key={job.url}
-                className="rounded-xl border border-[var(--line)] bg-ink/50 p-4"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {job.match?.band ? (
-                        <span className="rounded-full bg-seafoam/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-seafoam">
-                          Band {job.match.band}
-                        </span>
-                      ) : null}
-                      <span className="rounded-full border border-[var(--line)] px-2 py-0.5 text-[10px] uppercase tracking-wider text-sand-muted">
-                        {st}
-                      </span>
-                    </div>
-                    <a
-                      href={job.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => onMark(job.url, "ready")}
-                      className="focus-ring mt-1 block text-base font-medium text-copper hover:underline"
-                    >
-                      {job.title}
-                    </a>
-                    <p className="mt-1 text-sm text-sand">
-                      {job.company}
-                      {job.location ? ` · ${job.location}` : ""}
-                    </p>
-                    <p className="mt-2 text-xs text-sand-muted">
-                      {job.portal}
-                      {job.posted_age_days != null
-                        ? ` · ~${job.posted_age_days}d`
-                        : ""}
-                      {job.score != null ? ` · score ${job.score}` : ""}
-                    </p>
-                    {job.match ? (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {job.match.title_matched.slice(0, 3).map((t) => (
-                          <span
-                            key={t}
-                            className="rounded-full bg-seafoam/10 px-2 py-0.5 text-[11px] text-seafoam"
-                          >
-                            title: {t}
-                          </span>
-                        ))}
-                        {job.match.skills_matched.slice(0, 4).map((s) => (
-                          <span
-                            key={s}
-                            className="rounded-full bg-ink-mid px-2 py-0.5 text-[11px] text-sand-muted"
-                          >
-                            skill: {s}
-                          </span>
-                        ))}
-                        {job.match.geo_matched ? (
-                          <span className="rounded-full bg-ink-mid px-2 py-0.5 text-[11px] text-sand-muted">
-                            geo match
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {job.ai_note ? (
-                      <p className="mt-2 text-sm text-seafoam">{job.ai_note}</p>
-                    ) : null}
-                    {job.ai_bullets?.length ? (
-                      <ul className="mt-1 list-disc pl-5 text-xs text-sand-muted">
-                        {job.ai_bullets.map((b) => (
-                          <li key={b}>{b}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                    {job.reject_reason && !job.eligible ? (
-                      <p className="mt-1 text-[11px] text-copper">
-                        Not eligible: {job.reject_reason}
-                      </p>
-                    ) : null}
-                    {job.summary ? (
-                      <p className="mt-2 line-clamp-2 text-sm text-sand-muted">
-                        {job.summary}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 flex-col gap-2">
-                    <a
-                      href={job.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => onMark(job.url, "ready")}
-                      className="focus-ring rounded-full border border-seafoam/40 px-4 py-2 text-center text-xs font-medium text-seafoam"
-                    >
-                      Open listing
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => onMark(job.url, "applied")}
-                      className="focus-ring rounded-full bg-copper/90 px-4 py-2 text-xs font-semibold text-ink"
-                    >
-                      Mark applied
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onMark(job.url, "saved")}
-                      className="focus-ring rounded-full border border-[var(--line)] px-4 py-1.5 text-xs text-sand-muted"
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onWrongFit("seniority", job)}
-                      className="focus-ring text-left text-[11px] text-sand-muted underline"
-                    >
-                      Wrong seniority
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onWrongFit("field", job)}
-                      className="focus-ring text-left text-[11px] text-sand-muted underline"
-                    >
-                      Wrong field
-                    </button>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
   );
 }

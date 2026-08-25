@@ -11,13 +11,14 @@ export const metadata: Metadata = {
 
 export default function StatusPage() {
   return (
-    <div className="atmosphere flex min-h-full flex-col">
-      <div className="horizon" aria-hidden />
+    <div className="flex min-h-svh flex-col bg-ink">
       <SiteHeader />
-      <main className="relative z-10 flex-1 pt-8 md:pt-14">
-        <StatusBoard />
-      </main>
-      <SiteFooter />
+      <div className="atmosphere relative flex flex-1 flex-col">
+        <main className="relative z-10 flex-1 pt-8 md:pt-14">
+          <StatusBoard />
+        </main>
+        <SiteFooter />
+      </div>
     </div>
   );
 }

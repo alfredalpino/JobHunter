@@ -50,14 +50,22 @@ function cacheKey(payload: unknown): string {
     .slice(0, 24);
 }
 
-async function callGemini(prompt: string): Promise<string> {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) {
-    throw new Error(
-      "GEMINI_API_KEY not set in frontend/.env.local — AI polish disabled.",
-    );
-  }
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`;
+function resolveGeminiKey(
+  request: Request,
+  body: Record<string, unknown>,
+): { key: string; byok: boolean } | null {
+  const fromBody =
+    typeof body.geminiKey === "string" ? body.geminiKey.trim() : "";
+  const fromHeader = request.headers.get("x-gemini-key")?.trim() || "";
+  const userKey = fromBody || fromHeader;
+  if (userKey) return { key: userKey, byok: true };
+  const envKey = process.env.GEMINI_API_KEY?.trim();
+  if (envKey) return { key: envKey, byok: false };
+  return null;
+}
+
+async function callGemini(prompt: string, apiKey: string): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -124,8 +132,20 @@ function mergeProfilePolish(profile: Profile, polish: Record<string, unknown>): 
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as Record<string, unknown>;
     const mode = body?.mode as string;
+    const resolved = resolveGeminiKey(request, body);
+    if (!resolved) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "No Gemini key — paste your API key under Optional AI polish (BYOK) or set GEMINI_API_KEY on the server.",
+        },
+        { status: 400 },
+      );
+    }
+    const { key: geminiKey, byok } = resolved;
 
     if (mode === "profile") {
       const profile = body.profile as Profile;
@@ -140,32 +160,45 @@ export async function POST(request: Request) {
         excerpt: squash(profile.raw_excerpt || "", MAX_RESUME),
         titles: profile.target_titles,
       });
-      const cached = await readCache(key);
-      if (cached && typeof cached === "object" && cached !== null && "profile" in cached) {
-        return NextResponse.json({
-          ok: true,
-          cached: true,
-          profile: (cached as { profile: Profile }).profile,
-          message: "Loaded polished profile from cache.",
-        });
+      if (!byok) {
+        const cached = await readCache(key);
+        if (
+          cached &&
+          typeof cached === "object" &&
+          cached !== null &&
+          "profile" in cached
+        ) {
+          return NextResponse.json({
+            ok: true,
+            cached: true,
+            byok: false,
+            profile: (cached as { profile: Profile }).profile,
+            message: "Loaded polished profile from cache.",
+          });
+        }
       }
 
       const prompt = `You polish a job-seeker profile for JobHunter. Return JSON only with keys:
 target_titles (array), search_queries (array max 4), skills_positive (array), title_must_match_any (multi-word phrases preferred), experience {max_years_required, target_band, level}, plain_summary (one short sentence).
-Keep seniority realistic. Never invent executive titles for juniors.
+Keep seniority realistic. Never invent executive titles for juniors. Prefer network/NOC titles when resume shows CCNA, routing, switching, or telecom skills.
 Draft titles: ${JSON.stringify(profile.target_titles)}
 Draft skills: ${JSON.stringify(profile.skills_positive.slice(0, 15))}
 Resume excerpt: ${squash(profile.raw_excerpt || "", MAX_RESUME)}`;
 
-      const text = await callGemini(prompt);
+      const text = await callGemini(prompt, geminiKey);
       const polish = JSON.parse(text) as Record<string, unknown>;
       const merged = mergeProfilePolish(profile, polish);
-      await writeCache(key, { profile: merged });
+      if (!byok) {
+        await writeCache(key, { profile: merged });
+      }
       return NextResponse.json({
         ok: true,
         cached: false,
+        byok,
         profile: merged,
-        message: "Profile polished with Gemini Flash.",
+        message: byok
+          ? "Profile polished with your Gemini key."
+          : "Profile polished with Gemini Flash.",
       });
     }
 
@@ -190,13 +223,21 @@ Resume excerpt: ${squash(profile.raw_excerpt || "", MAX_RESUME)}`;
         titles: profile.target_titles,
         jobs: slim.map((j) => j.url),
       });
-      const cached = await readCache(key);
-      if (cached && typeof cached === "object" && cached !== null && "jobs" in cached) {
-        return NextResponse.json({
-          ok: true,
-          cached: true,
-          jobs: (cached as { jobs: Job[] }).jobs,
-        });
+      if (!byok) {
+        const cached = await readCache(key);
+        if (
+          cached &&
+          typeof cached === "object" &&
+          cached !== null &&
+          "jobs" in cached
+        ) {
+          return NextResponse.json({
+            ok: true,
+            cached: true,
+            byok: false,
+            jobs: (cached as { jobs: Job[] }).jobs,
+          });
+        }
       }
 
       const prompt = `For each job, write a one-line why-fit and up to 3 resume bullets to emphasize. Return JSON: { "items": [ { "url": "...", "ai_note": "...", "ai_bullets": ["..."] } ] }
@@ -205,13 +246,11 @@ Titles: ${profile.target_titles.join(", ")}
 Skills: ${profile.skills_positive.slice(0, 12).join(", ")}
 Jobs: ${JSON.stringify(slim)}`;
 
-      const text = await callGemini(prompt);
+      const text = await callGemini(prompt, geminiKey);
       const parsed = JSON.parse(text) as {
         items?: { url: string; ai_note?: string; ai_bullets?: string[] }[];
       };
-      const byUrl = new Map(
-        (parsed.items || []).map((i) => [i.url, i]),
-      );
+      const byUrl = new Map((parsed.items || []).map((i) => [i.url, i]));
       const out = jobs.slice(0, 15).map((j) => {
         const n = byUrl.get(j.url);
         return {
@@ -220,8 +259,92 @@ Jobs: ${JSON.stringify(slim)}`;
           ai_bullets: n?.ai_bullets || [],
         };
       });
-      await writeCache(key, { jobs: out });
-      return NextResponse.json({ ok: true, cached: false, jobs: out });
+      if (!byok) {
+        await writeCache(key, { jobs: out });
+      }
+      return NextResponse.json({ ok: true, cached: false, byok, jobs: out });
+    }
+
+    if (mode === "rerank") {
+      const profile = body.profile as Profile;
+      const jobs = (body.jobs || []) as Job[];
+      if (!profile || !jobs.length) {
+        return NextResponse.json(
+          { ok: false, error: "Missing profile or jobs" },
+          { status: 400 },
+        );
+      }
+      // Shortlist only — never full corpus
+      const slim = jobs.slice(0, 40).map((j) => ({
+        url: j.url,
+        title: j.title,
+        company: j.company,
+        score: j.score ?? null,
+        band: j.match?.band ?? null,
+        summary: squash(j.summary || "", 160),
+      }));
+      const key = cacheKey({
+        mode: "rerank",
+        name: profile.candidate.name,
+        titles: profile.target_titles,
+        jobs: slim.map((j) => j.url),
+      });
+      if (!byok) {
+        const cached = await readCache(key);
+        if (
+          cached &&
+          typeof cached === "object" &&
+          cached !== null &&
+          "ordered_urls" in cached
+        ) {
+          return NextResponse.json({
+            ok: true,
+            cached: true,
+            byok: false,
+            ...(cached as {
+              ordered_urls: string[];
+              notes: Record<string, string>;
+            }),
+          });
+        }
+      }
+
+      const prompt = `Re-rank this shortlist for the candidate. Return JSON only:
+{ "ordered_urls": ["url1","url2",...], "notes": { "url": "one-line why this rank" } }
+Put best fits first. Do not invent URLs. Keep every input URL exactly once.
+Candidate: ${profile.candidate.name}
+Titles: ${profile.target_titles.join(", ")}
+Skills: ${profile.skills_positive.slice(0, 12).join(", ")}
+Shortlist: ${JSON.stringify(slim)}`;
+
+      const text = await callGemini(prompt, geminiKey);
+      const parsed = JSON.parse(text) as {
+        ordered_urls?: string[];
+        notes?: Record<string, string>;
+      };
+      const inputUrls = slim.map((j) => j.url);
+      const seen = new Set<string>();
+      const ordered: string[] = [];
+      for (const u of parsed.ordered_urls || []) {
+        if (inputUrls.includes(u) && !seen.has(u)) {
+          seen.add(u);
+          ordered.push(u);
+        }
+      }
+      for (const u of inputUrls) {
+        if (!seen.has(u)) ordered.push(u);
+      }
+      const notes: Record<string, string> = {};
+      for (const [u, n] of Object.entries(parsed.notes || {})) {
+        if (inputUrls.includes(u) && typeof n === "string") {
+          notes[u] = n.slice(0, 220);
+        }
+      }
+      const payload = { ordered_urls: ordered, notes };
+      if (!byok) {
+        await writeCache(key, payload);
+      }
+      return NextResponse.json({ ok: true, cached: false, byok, ...payload });
     }
 
     if (mode === "cover") {
@@ -234,16 +357,17 @@ Jobs: ${JSON.stringify(slim)}`;
         );
       }
       const prompt = `Write a short 3-paragraph cover/outreach draft (plain text in JSON { "draft": "..." }). No lies. Candidate ${profile.candidate.name}, titles ${profile.target_titles.join(", ")}, job ${job.title} at ${job.company}. Summary: ${squash(job.summary || "", 300)}`;
-      const text = await callGemini(prompt);
+      const text = await callGemini(prompt, geminiKey);
       const parsed = JSON.parse(text) as { draft?: string };
       return NextResponse.json({
         ok: true,
+        byok,
         draft: parsed.draft || text,
       });
     }
 
     return NextResponse.json(
-      { ok: false, error: "Unknown mode. Use profile | matches | cover." },
+      { ok: false, error: "Unknown mode. Use profile | matches | rerank | cover." },
       { status: 400 },
     );
   } catch (err) {
@@ -264,9 +388,10 @@ export async function GET() {
     ok: true,
     ready: configured,
     configured,
+    byok_supported: true,
     method: "POST",
     note: configured
-      ? "POST JSON to polish. GET is readiness only."
-      : "Optional — set GEMINI_API_KEY to enable AI polish.",
+      ? "POST JSON to polish. Pass geminiKey in body or X-Gemini-Key header for BYOK."
+      : "Optional — paste your Gemini key in the app or set GEMINI_API_KEY on the server.",
   });
 }

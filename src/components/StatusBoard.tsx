@@ -90,39 +90,29 @@ export function StatusBoard() {
 
   const overall = data?.overall ?? "down";
   const copy = overallCopy(data ? overall : "down");
+  const overallState: CheckState =
+    overall === "down" ? "down" : overall === "degraded" ? "degraded" : "up";
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-6 pb-20 md:px-10">
-      <div className="rise mb-10">
-        <p className="text-xs tracking-[0.14em] text-seafoam uppercase">
+    <section className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6 sm:pb-20 md:px-10">
+      <div className="glass-panel rise mb-10 p-8">
+        <p className="glass-badge inline-flex px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-seafoam">
           System status
         </p>
-        <h1 className="mt-3 font-[family-name:var(--font-fraunces)] text-4xl tracking-tight text-sand md:text-5xl">
+        <h1 className="mt-4 font-[family-name:var(--font-fraunces)] text-4xl tracking-tight text-sand md:text-5xl">
           {copy.title}
         </h1>
         <p className="mt-3 max-w-xl text-sand-muted">{copy.blurb}</p>
         <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-sand-muted">
           <span
-            className="inline-flex items-center gap-2"
-            style={{ color: stateColor(overall === "down" ? "down" : overall === "degraded" ? "degraded" : "up") }}
+            className="inline-flex items-center gap-2 font-medium"
+            style={{ color: stateColor(overallState) }}
           >
             <span
               className="inline-block h-2.5 w-2.5 rounded-full"
               style={{
-                background: stateColor(
-                  overall === "down"
-                    ? "down"
-                    : overall === "degraded"
-                      ? "degraded"
-                      : "up",
-                ),
-                boxShadow: `0 0 12px ${stateColor(
-                  overall === "down"
-                    ? "down"
-                    : overall === "degraded"
-                      ? "degraded"
-                      : "up",
-                )}`,
+                background: stateColor(overallState),
+                boxShadow: `0 0 12px ${stateColor(overallState)}`,
               }}
               aria-hidden
             />
@@ -145,23 +135,23 @@ export function StatusBoard() {
             type="button"
             onClick={load}
             disabled={isPending}
-            className="focus-ring rounded-sm border border-[var(--line)] px-3 py-1 text-sand transition-colors hover:border-seafoam hover:text-sand disabled:opacity-50"
+            className="focus-ring glass-btn-ghost touch-target px-4 py-2.5 text-sm disabled:opacity-50"
           >
             {isPending ? "Checking…" : "Refresh"}
           </button>
         </div>
         {error ? (
-          <p className="mt-4 text-sm" style={{ color: "#e07070" }} role="alert">
+          <p className="glass-alert mt-4 px-4 py-3 text-sm" style={{ color: "#e07070" }} role="alert">
             {error}
           </p>
         ) : null}
       </div>
 
-      <ul className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
+      <ul className="space-y-3">
         {(data?.checks ?? []).map((check, i) => (
           <li
             key={check.id}
-            className="rise flex flex-col gap-2 py-5 sm:flex-row sm:items-start sm:justify-between sm:gap-8"
+            className="glass-card rise flex flex-col gap-2 p-5 sm:flex-row sm:items-start sm:justify-between sm:gap-8"
             style={{ animationDelay: `${0.05 * (i + 1)}s` }}
           >
             <div className="min-w-0">
@@ -172,12 +162,12 @@ export function StatusBoard() {
                   aria-hidden
                 />
                 <h2 className="font-medium text-sand">{check.name}</h2>
-                <span className="text-xs tracking-wide text-sand-muted uppercase">
+                <span className="glass-chip-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-sand-muted">
                   {check.severity}
                 </span>
               </div>
               <p className="mt-1 text-sm text-sand-muted">{check.description}</p>
-              <p className="mt-1 font-mono text-xs text-sand-muted">
+              <p className="mt-1 break-all font-mono text-xs text-sand-muted">
                 {check.method} {check.path}
               </p>
             </div>
@@ -190,7 +180,7 @@ export function StatusBoard() {
               </p>
               <p className="mt-1 text-xs text-sand-muted">{check.detail}</p>
               {check.statusCode != null ? (
-                <p className="mt-1 font-mono text-xs text-sand-muted">
+                <p className="mt-1 break-all font-mono text-xs text-sand-muted">
                   HTTP {check.statusCode}
                   {check.latencyMs != null ? ` · ${check.latencyMs}ms` : ""}
                 </p>
@@ -204,7 +194,7 @@ export function StatusBoard() {
         <p className="mt-8 text-sm text-sand-muted">Running readiness probes…</p>
       ) : null}
 
-      <p className="mt-10 max-w-2xl text-sm text-sand-muted">
+      <p className="mt-10 max-w-2xl text-sm leading-relaxed text-sand-muted">
         {data?.note ||
           "Probes never scrape jobs or call AI. Auto-refresh every 30 seconds."}{" "}
         Auto-refresh every {REFRESH_MS / 1000}s.

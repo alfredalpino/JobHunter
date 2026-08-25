@@ -4,33 +4,21 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { HuntApp } from "@/components/HuntApp";
 
 export const metadata: Metadata = {
-  title: "App",
+  title: "Hunt",
   description:
-    "Analyze a resume, set region and preferences, hunt fresh ≤14-day jobs. No auto-apply.",
+    "Upload your resume, tune filters, and review fresh job matches in one workspace. No auto-apply.",
 };
 
 export default function AppPage() {
   return (
-    <div className="atmosphere flex min-h-full flex-1 flex-col">
+    <div className="flex min-h-svh flex-col bg-ink">
       <SiteHeader />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-12 md:px-10">
-        <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-seafoam">
-          Operable app
-        </p>
-        <h1 className="mt-3 font-[family-name:var(--font-fraunces)] text-4xl font-light tracking-tight text-sand">
-          Hunt from the browser
-        </h1>
-        <p className="mt-4 max-w-2xl text-sand-muted">
-          Resume → region → preferences → fresh matches. Filters run in TypeScript
-          (recency ≤14 days, seniority guardrails, skill synonyms). Public job
-          APIs power the search on Vercel — the Python CLI stays available for
-          deeper local scrapes.
-        </p>
-        <div className="mt-12">
+      <div className="atmosphere flex flex-1 flex-col">
+        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8 md:px-10 md:py-10">
           <HuntApp />
-        </div>
-      </main>
-      <SiteFooter />
+        </main>
+        <SiteFooter />
+      </div>
     </div>
   );
 }

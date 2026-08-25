@@ -1,5 +1,8 @@
 import type { AppliedRecord, Job, JobStatus } from "./types";
 
+export { downloadText } from "./export/download";
+export { jobsToMarkdown } from "./export/markdown";
+
 const APPLIED_KEY = "jobhunter.applied.v1";
 
 export function loadAppliedMap(): Record<string, AppliedRecord> {
@@ -46,40 +49,4 @@ export function todaysQueue(
   return jobs
     .filter((j) => j.url && !blocked.has(getJobStatus(j.url, map)))
     .slice(0, n);
-}
-
-export function jobsToMarkdown(
-  jobs: Job[],
-  map: Record<string, AppliedRecord>,
-  title = "Eligible jobs",
-): string {
-  const lines = [`# ${title}`, "", `Generated: ${new Date().toISOString()}`, ""];
-  for (const j of jobs) {
-    const st = getJobStatus(j.url, map);
-    const band = j.match?.band || "?";
-    const why = [
-      ...(j.match?.title_matched || []).slice(0, 2),
-      ...(j.match?.skills_matched || []).slice(0, 3),
-    ].join(", ");
-    lines.push(`## [${band}] ${j.title}`);
-    lines.push(`- Company: ${j.company || "—"}`);
-    lines.push(`- Location: ${j.location || "—"}`);
-    lines.push(`- Posted: ${j.posted_at || "—"} (~${j.posted_age_days ?? "?"}d)`);
-    lines.push(`- Status: ${st}`);
-    lines.push(`- Score: ${j.score ?? 0}`);
-    if (why) lines.push(`- Why: ${why}`);
-    lines.push(`- Link: ${j.url}`);
-    lines.push("");
-  }
-  return lines.join("\n");
-}
-
-export function downloadText(filename: string, content: string): void {
-  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }

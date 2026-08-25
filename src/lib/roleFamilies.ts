@@ -40,6 +40,16 @@ export const ROLE_FAMILIES: RoleFamily[] = [
       "firewall engineer",
       "network security engineer",
       "telecom engineer",
+      "telecom technician",
+      "field technician",
+      "network operations technician",
+      "broadband technician",
+      "cable technician",
+      "isp technician",
+      "hfc technician",
+      "fiber technician",
+      "junior network engineer",
+      "noc l1",
       "wireless engineer",
     ],
     weakTokens: ["network"], // "Network Partnership" must not pass on this alone
@@ -175,11 +185,13 @@ export function detectProfileFamilies(profile: {
   target_titles?: string[];
   title_must_match_any?: string[];
   skills_positive?: string[];
+  certifications?: string[];
 }): RoleFamilyId[] {
   const blob = [
     ...(profile.target_titles || []),
     ...(profile.title_must_match_any || []),
-    ...(profile.skills_positive || []).slice(0, 20),
+    ...(profile.skills_positive || []).slice(0, 24),
+    ...(profile.certifications || []),
   ]
     .join(" ")
     .toLowerCase();
@@ -190,6 +202,38 @@ export function detectProfileFamilies(profile: {
     if (hit) hits.push(fam.id);
   }
   return hits.length ? hits : ["software_eng", "it_support", "network_ops"];
+}
+
+/** Related families — widen title matching without widening scrape noise too much. */
+const ADJACENT_FAMILIES: Partial<Record<RoleFamilyId, RoleFamilyId[]>> = {
+  network_ops: ["it_support", "security", "cloud_devops"],
+  it_support: ["network_ops", "cloud_devops"],
+  security: ["network_ops", "it_support"],
+  cloud_devops: ["it_support", "software_eng", "network_ops"],
+  data_analyst: ["general_analyst", "software_eng"],
+  software_eng: ["cloud_devops", "data_analyst"],
+  general_analyst: ["data_analyst"],
+};
+
+function familiesForMatching(profile: {
+  target_titles?: string[];
+  title_must_match_any?: string[];
+  skills_positive?: string[];
+  certifications?: string[];
+}): RoleFamilyId[] {
+  const primary = detectProfileFamilies(profile);
+  const expanded = new Set<RoleFamilyId>(primary);
+  const networkPrimary =
+    primary.includes("network_ops") && !primary.includes("security");
+  for (const fam of primary) {
+    for (const adj of ADJACENT_FAMILIES[fam] || []) {
+      if (networkPrimary && fam === "network_ops" && adj === "security") {
+        continue;
+      }
+      expanded.add(adj);
+    }
+  }
+  return [...expanded];
 }
 
 /**
@@ -212,8 +256,9 @@ export function compileTitleMatcher(profile: {
   target_titles?: string[];
   title_must_match_any?: string[];
   skills_positive?: string[];
+  certifications?: string[];
 }): CompiledTitleMatcher {
-  const families = detectProfileFamilies(profile);
+  const families = familiesForMatching(profile);
   return {
     targetTitles: (profile.target_titles || [])
       .map((t) => t.trim())

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { scoreJob, scoreAllJobs } from "./eligibility";
+import {
+  maxYearsRequiredFromText,
+  scoreJob,
+  scoreAllJobs,
+} from "./eligibility";
 import { matchTitleToProfile } from "./roleFamilies";
 import type { Job, Profile } from "./types";
 
@@ -154,5 +158,106 @@ describe("eligibility", () => {
     expect(
       all.find((j) => /marketing/i.test(j.title))?.eligible,
     ).toBe(false);
+  });
+
+  it("rejects title match with no skill overlap when profile has many must-haves", () => {
+    const scored = scoreJob(
+      job({
+        title: "Network Engineer",
+        summary: "general IT role dubai",
+      }),
+      baseProfile({
+        skills_positive: [
+          "network",
+          "cisco",
+          "ccna",
+          "routing",
+          "switching",
+          "firewall",
+        ],
+      }),
+    );
+    expect(scored.eligible).toBe(false);
+    expect(scored.reject_reason).toMatch(/must-have skills/i);
+  });
+
+  it("rejects spam listings", () => {
+    const scored = scoreJob(
+      job({ title: "Earn $5000 weekly work from phone" }),
+      baseProfile(),
+    );
+    expect(scored.eligible).toBe(false);
+    expect(scored.reject_reason).toMatch(/spam/i);
+  });
+
+  it("accepts field technician for network profile", () => {
+    const scored = scoreJob(
+      job({
+        title: "Field Technician III",
+        url: "https://example.com/field",
+        summary: "HFC coaxial network maintenance troubleshooting",
+      }),
+      baseProfile(),
+    );
+    expect(scored.eligible).toBe(true);
+  });
+
+  it("rejects application security engineer for network-focused profile", () => {
+    const scored = scoreJob(
+      job({
+        title: "Application Security Engineer II",
+        url: "https://example.com/appsec",
+        summary: "AWS security cisco routing",
+      }),
+      baseProfile({
+        target_titles: ["Network Engineer", "NOC Engineer"],
+        skills_positive: ["network", "cisco", "ccna", "routing", "switching"],
+      }),
+    );
+    expect(scored.eligible).toBe(false);
+    expect(scored.reject_reason).toMatch(/role family/i);
+  });
+
+  it("rejects Cable Bahamas-style 5 years' experience for junior cap", () => {
+    const summary =
+      "Up to a minimum of 5 years' experience in the cable industry with knowledge of Outside Plant (inclusive of but not limited to, Installation, Service, Construction, Preventative Maintenance and fibre network topology. Minimum of an Associate Degree or Certification in Construction, HFC or Fiber.";
+    const scored = scoreJob(
+      job({
+        title: "Field Technician III",
+        company: "Cable Bahamas",
+        url: "https://example.com/cable-bahamas",
+        summary,
+      }),
+      baseProfile({
+        experience: {
+          estimated_years: 1,
+          max_years_required: 2,
+          level: "junior_entry_associate",
+          target_band: "0-2",
+          credibility: true,
+          max_job_level: "junior",
+        },
+      }),
+    );
+    expect(scored.eligible).toBe(false);
+    expect(scored.reject_reason).toMatch(/5\+ years/i);
+  });
+});
+
+describe("maxYearsRequiredFromText", () => {
+  it("parses possessive years' and minimum-of phrasing", () => {
+    expect(
+      maxYearsRequiredFromText(
+        "Up to a minimum of 5 years' experience in the cable industry",
+      ),
+    ).toBe(5);
+    expect(
+      maxYearsRequiredFromText("5 years’ experience with HFC"),
+    ).toBe(5);
+    expect(maxYearsRequiredFromText("minimum of 3 years in networking")).toBe(
+      3,
+    );
+    expect(maxYearsRequiredFromText("at least 2 years of experience")).toBe(2);
+    expect(maxYearsRequiredFromText("5+ years experience")).toBe(5);
   });
 });

@@ -18,7 +18,7 @@ describe("defaultPreferences", () => {
   it("seeds dubai region pack", () => {
     const prefs = defaultPreferences("dubai");
     expect(prefs.region).toBe("dubai");
-    expect(prefs.date_window).toBe("any_age");
+    expect(prefs.date_window).toBe("all_fresh");
   });
 });
 

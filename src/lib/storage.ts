@@ -11,6 +11,10 @@ export type SessionState = {
   huntedAt: string | null;
   applied?: Record<string, AppliedRecord>;
   showBandC?: boolean;
+  /** Match-loop drip: how many queue slots have been unlocked. */
+  dripCursor?: number;
+  showAllMatches?: boolean;
+  huntSource?: "index" | "live_scrape" | null;
 };
 
 export function loadSession(): SessionState | null {

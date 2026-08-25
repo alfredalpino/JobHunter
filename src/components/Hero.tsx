@@ -1,39 +1,54 @@
 import Link from "next/link";
+import { JOB_SOURCE_COUNT_LABEL } from "@/lib/marketing";
+
+const differentiators = [
+  { k: `${JOB_SOURCE_COUNT_LABEL} Sources`, v: "Dynamic job discovery" },
+  { k: "Resume-first", v: "Matches built around you" },
+  { k: "You apply", v: "Never auto-apply" },
+] as const;
 
 export function Hero() {
   return (
-    <section className="relative flex min-h-[calc(100svh-5.5rem)] flex-col justify-center px-6 pb-24 pt-10 md:px-10">
-      <div className="horizon" aria-hidden />
+    <section className="relative flex min-h-[calc(100svh-4rem)] flex-col justify-center px-4 pb-16 pt-8 sm:min-h-[calc(100svh-4.75rem)] sm:px-6 sm:pb-24 sm:pt-10 md:px-10">
       <div className="relative z-10 mx-auto w-full max-w-4xl">
-        <p className="rise text-[11px] font-medium uppercase tracking-[0.22em] text-seafoam">
-          JobHunter · Alfredterminal
+        <p className="rise glass-badge inline-flex px-4 py-1.5 text-[10.72px] font-medium uppercase tracking-[0.22em] text-seafoam">
+          JobHunter · Alfred Alpino
         </p>
-        <h1 className="rise rise-delay-1 mt-5 max-w-[14ch] font-[family-name:var(--font-fraunces)] text-[clamp(2.6rem,7vw,4.6rem)] font-light leading-[1.05] tracking-tight text-sand">
-          Fresh jobs. Your resume. Your move.
+        <h1 className="rise rise-delay-1 mt-6 max-w-3xl font-[family-name:var(--font-fraunces)] text-[clamp(2.1rem,5.2vw,3.75rem)] font-light leading-[1.08] tracking-tight text-sand">
+          We read your resume. Then hunt {JOB_SOURCE_COUNT_LABEL} job sites for your
+          best matches.
         </h1>
-        <p className="rise rise-delay-2 mt-6 max-w-xl text-lg leading-relaxed text-sand-muted">
-          Upload a CV, pick a region, and keep only roles that match you — posted
-          in the last two weeks. No auto-apply. Ever.
+        <p className="rise rise-delay-2 mt-6 max-w-2xl text-xl leading-relaxed text-sand-muted">
+          Upload your resume once. JobHunter analyzes your skills, experience,
+          seniority, and preferences, dynamically searches hundreds of job sources,
+          and surfaces the roles that fit you best.
         </p>
-        <div className="rise rise-delay-3 mt-10 flex flex-wrap gap-3">
+        <p className="rise rise-delay-2 mt-5 max-w-2xl text-base font-medium leading-relaxed text-sand">
+          Fresh listings. Better matches. You make every application decision.
+        </p>
+        <div className="rise rise-delay-3 mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <Link
             href="/app"
-            className="focus-ring inline-flex items-center justify-center rounded-full bg-copper px-6 py-3 text-sm font-semibold text-ink transition-transform hover:-translate-y-0.5"
+            className="focus-ring glass-btn-primary touch-target inline-flex w-full items-center justify-center px-6 py-3.5 text-base sm:w-auto"
           >
             Get started
           </Link>
           <Link
-            href="/app#analyze"
-            className="focus-ring inline-flex items-center justify-center rounded-full border border-seafoam/35 bg-ink-mid/40 px-6 py-3 text-sm font-medium text-sand backdrop-blur-sm transition-colors hover:border-seafoam/70"
-          >
-            Analyze resume
-          </Link>
-          <Link
             href="/#preferences"
-            className="focus-ring inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-medium text-sand-muted transition-colors hover:text-sand"
+            className="focus-ring glass-btn-ghost touch-target inline-flex w-full items-center justify-center px-6 py-3.5 text-base font-medium sm:w-auto"
           >
             Prefer region
           </Link>
+        </div>
+        <div className="rise rise-delay-3 mt-14 grid gap-4 sm:grid-cols-3">
+          {differentiators.map((item) => (
+            <div key={item.k} className="glass-card p-4">
+              <p className="font-[family-name:var(--font-fraunces)] text-xl text-copper">
+                {item.k}
+              </p>
+              <p className="mt-1 text-sm text-sand-muted">{item.v}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>
